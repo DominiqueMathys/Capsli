@@ -1,18 +1,24 @@
 import React from 'react';
-import { SafeAreaView, StatusBar, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  SafeAreaView,
+  StatusBar,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+} from 'react-native';
 
 const DashboardEmptyScreen: React.FC = () => {
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header mit Logo */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Dashboard leer</Text>
-
-        <View style={styles.logoWrapper}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>C</Text>
-          </View>
-        </View>
+        <Image
+          source={require('./assets/logo.png')} // Dateinamen bei Bedarf anpassen
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
       </View>
 
       {/* Inhalt */}
@@ -24,32 +30,49 @@ const DashboardEmptyScreen: React.FC = () => {
 
       {/* Navigation unten */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.smallIconButton}>
-          <Text style={styles.smallIconText}>🕒</Text>
+        {/* Uhr */}
+        <TouchableOpacity>
+          <Image
+            source={require('./assets/clock_icon.png')}
+            style={styles.smallIconImage}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
 
+        {/* Grosser Plus Button */}
         <TouchableOpacity style={styles.addButton}>
-          <Text style={styles.addButtonText}>+</Text>
+          <Image
+            source={require('./assets/Bild_Plus_Button.png')}
+            style={styles.addButtonImage}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.smallIconButton}>
-          <Text style={styles.smallIconText}>👤</Text>
+        {/* Profil */}
+        <TouchableOpacity>
+          <Image
+            source={require('./assets/profil_icon.png')}
+            style={styles.profileIcon}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
       </View>
     </View>
   );
 };
 
-export default function App() {
+const App: React.FC = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
       <StatusBar barStyle="light-content" />
       <DashboardEmptyScreen />
     </SafeAreaView>
   );
-}
+};
 
-const HEADER_HEIGHT = 60;
+export default App;
+
+const HEADER_HEIGHT = 80;
 const BOTTOM_NAV_HEIGHT = 80;
 
 const styles = StyleSheet.create({
@@ -57,33 +80,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f6f6f6',
   },
+
+  /* Header mit Logo */
   header: {
     height: HEADER_HEIGHT,
     backgroundColor: '#0280BE',
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: '#dcdcdc',
-    fontSize: 14,
-  },
-  logoWrapper: {
-    position: 'absolute',
-    right: 16,
-    top: HEADER_HEIGHT / 2 - 16,
-  },
-  logoCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoText: {
-    color: '#00b894',
-    fontWeight: 'bold',
+  headerLogo: {
+    width: 60,
+    height: 60,
   },
+
+  /* Hauptinhalt */
   content: {
     flex: 1,
     alignItems: 'center',
@@ -99,6 +109,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000000',
   },
+
+  /* Untere Leiste */
   bottomBar: {
     height: BOTTOM_NAV_HEIGHT,
     backgroundColor: '#0280BE',
@@ -107,29 +119,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingHorizontal: 32,
   },
-  smallIconButton: {
+
+  /* Grosser Plus Button */
+  addButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -75,
+  },
+  addButtonImage: {
+    width: 54,
+    height: 54,
+  },
+
+  /* Icons (Uhr & Typ) in der Leiste */
+  smallIconImage: {
     width: 46,
     height: 46,
-    borderRadius: 23,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  smallIconText: {
-    fontSize: 22,
-  },
-  addButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -20,
-  },
-  addButtonText: {
-    fontSize: 32,
-    color: '#00b894',
-    marginTop: -4,
+  profileIcon: {
+    width: 50,
+    height: 50,
   },
 });
