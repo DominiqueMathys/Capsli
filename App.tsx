@@ -19,6 +19,7 @@ import {
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import MedicationFormScreen from './screens/screen_medi';
 
 /* Dashboard (als leerer Inhalt)*/
 
@@ -27,6 +28,7 @@ type Language = 'de' | 'fr' | 'en' | 'it';
 type RootStackParamList = {
   Dashboard: undefined;
   Profile: undefined;
+  MedicationForm: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -225,7 +227,7 @@ const SettingsProvider = ({children}: {children: ReactNode}) => {
   );
 };
 
-const useSettings = () => useContext(SettingsContext);
+export const useSettings = () => useContext(SettingsContext);
 
 /* Dashboard (als leerer Inhalt) */
 
@@ -267,7 +269,9 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({navigation}) => {
         </TouchableOpacity>
 
         {/* Grosser Plus Button */}
-        <TouchableOpacity style={styles.addButton}>
+        <TouchableOpacity
+             style={styles.addButton}
+             onPress={() => navigation.navigate('MedicationForm')}>
           <Image
             source={require('./assets/Bild_Plus_Button.png')}
             style={styles.addButtonImage}
@@ -597,6 +601,7 @@ const App: React.FC = () => {
           <Stack.Navigator screenOptions={{headerShown: false}}>
             <Stack.Screen name="Dashboard" component={DashboardEmptyScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="MedicationForm" component={MedicationFormScreen} />
           </Stack.Navigator>
         </SafeAreaView>
       </NavigationContainer>
