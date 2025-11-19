@@ -7,10 +7,19 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  ScrollView,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useSettings} from '../App'; // kommt aus App.tsx
+import {useSettings} from '../App';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 
+/* -------------------------------------------------------------
+   Typen
+   ------------------------------------------------------------- */
 type Language = 'de' | 'fr' | 'en' | 'it';
 
 type IntakeTimes = {
@@ -33,8 +42,9 @@ type Medication = {
 
 const MEDS_STORAGE_KEY = '@capsli_medications';
 
-/* kleine Texte für das Formular, an Sprache gekoppelt */
-
+/* -------------------------------------------------------------
+   Übersetzungen des Formulars
+   ------------------------------------------------------------- */
 const medTranslations: Record<
   Language,
   {
@@ -140,34 +150,65 @@ const medTranslations: Record<
   },
 };
 
+/* -------------------------------------------------------------
+   Props-Typ für Navigation
+   ------------------------------------------------------------- */
 type Props = {
   navigation: any;
 };
 
+/* -------------------------------------------------------------
+   Start des Screens
+   ------------------------------------------------------------- */
 const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
   const {settings} = useSettings();
   const t = medTranslations[settings.language as Language];
 
+  /* -----------------------------------------------------------
+     Lokale States des Formulars
+     ----------------------------------------------------------- */
   const [name, setName] = useState('');
   const [permanent, setPermanent] = useState<boolean | null>(null);
+
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
   const [intakeTimes, setIntakeTimes] = useState<IntakeTimes>({
     morning: false,
     noon: false,
     evening: false,
     night: false,
   });
+
   const [note, setNote] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   const [nameError, setNameError] = useState('');
   const [intakeError, setIntakeError] = useState('');
 
+  /* -----------------------------------------------------------
+     Date helper
+     ----------------------------------------------------------- */
+  const formatDate = (date: Date) => {
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}.${m}.${y}`;
+  };
+
+  /* -----------------------------------------------------------
+     Einnahmezeiten umschalten
+     ----------------------------------------------------------- */
   const toggleIntake = (key: keyof IntakeTimes) => {
     setIntakeTimes(prev => ({...prev, [key]: !prev[key]}));
   };
 
+  /* -----------------------------------------------------------
+     Formular prüfen
+     ----------------------------------------------------------- */
   const validate = () => {
     let ok = true;
 
@@ -193,10 +234,32 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
     return ok;
   };
 
-  const handleSave = async () => {
-    if (!validate()) {
+  /* -----------------------------------------------------------
+     Bild aus Bibliothek wählen
+     ----------------------------------------------------------- */
+  const pickImage = async () => {
+    const {status} =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Zugriff auf die Fotobibliothek ist nötig.');
       return;
     }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  /* -----------------------------------------------------------
+     Speichern
+     ----------------------------------------------------------- */
+  const handleSave = async () => {
+    if (!validate()) return;
 
     const newMedication: Medication = {
       id: Date.now().toString(),
@@ -213,222 +276,290 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
       const existing = await AsyncStorage.getItem(MEDS_STORAGE_KEY);
       const list: Medication[] = existing ? JSON.parse(existing) : [];
       list.push(newMedication);
-      await AsyncStorage.setItem(MEDS_STORAGE_KEY, JSON.stringify(list));
+      await AsyncStorage.setItem(
+        MEDS_STORAGE_KEY,
+        JSON.stringify(list),
+      );
     } catch (e) {
-      console.log('Fehler beim Speichern der Medikamente', e);
+      console.log('Fehler beim Speichern:', e);
     }
 
     navigation.goBack();
   };
 
+  /* -----------------------------------------------------------
+     Abbrechen
+     ----------------------------------------------------------- */
   const handleCancel = () => {
     navigation.goBack();
   };
 
   const isValidForm = !!name.trim();
 
+  /* -----------------------------------------------------------
+     UI
+     ----------------------------------------------------------- */
   return (
     <SafeAreaView style={styles.container}>
-      {/* Logo oben */}
-      <View style={styles.header}>
-        <Image
-          source={require('../assets/logo.png')}
-          style={styles.headerLogo}
-          resizeMode="contain"
-        />
-      </View>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView behavior="padding" style={{flex: 1}}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scrollContent}>
+            
+            {/* ---------------------------------------------------
+                Logo oben
+               --------------------------------------------------- */}
+            <View style={styles.header}>
+              <Image
+                source={require('../assets/logo.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+            </View>
 
-      {/* Formular-Inhalt */}
-      <View style={styles.form}>
-        {/* Name */}
-        <Text style={styles.label}>{t.name}</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder=""
-          placeholderTextColor="#cccccc"
-        />
-        {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+            {/* ---------------------------------------------------
+                Formularbereich
+               --------------------------------------------------- */}
+            <View style={styles.form}>
 
-        {/* Permanent: Ja / Nein */}
-        <View style={[styles.row, {marginTop: 16}]}>
-          <Text style={styles.label}>{t.permanent}</Text>
-        </View>
-        <View style={styles.row}>
-          <View style={styles.rowCenter}>
-            <TouchableOpacity
-              style={[
-                styles.checkbox,
-                permanent === true && styles.checkboxActive,
-              ]}
-              onPress={() => setPermanent(true)}
-            />
-            <Text style={[styles.labelSmall, {marginLeft: 6}]}>{t.yes}</Text>
-          </View>
+              {/* Name */}
+              <Text style={styles.label}>{t.name}</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder=""
+                placeholderTextColor="#ccc"
+              />
+              {nameError ? (
+                <Text style={styles.errorText}>{nameError}</Text>
+              ) : null}
 
-          <View style={[styles.rowCenter, {marginLeft: 24}]}>
-            <TouchableOpacity
-              style={[
-                styles.checkbox,
-                permanent === false && styles.checkboxActive,
-              ]}
-              onPress={() => setPermanent(false)}
-            />
-            <Text style={[styles.labelSmall, {marginLeft: 6}]}>{t.no}</Text>
-          </View>
-        </View>
+              {/* Permanent */}
+              <Text style={[styles.label, {marginTop: 16}]}>
+                {t.permanent}
+              </Text>
 
-        {/* von / bis mit Kalender-Icons */}
-        <View style={[styles.row, {marginTop: 20}]}>
-          <Text style={[styles.labelSmall, {flex: 1}]}>{t.from}</Text>
-          <Text style={[styles.labelSmall, {flex: 1, textAlign: 'right'}]}>
-            {t.to}
-          </Text>
-        </View>
-        <View style={[styles.row, {marginTop: 4}]}>
-          <TouchableOpacity
-            style={styles.calendarButton}
-            onPress={() => {
-              // hier später DatePicker einbauen
-              setStartDate('');
-            }}>
-            <Image
-              source={require('../assets/calendar_icon.png')}
-              style={styles.calendarIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
+              <View style={styles.row}>
+                <TouchableOpacity
+                  style={[
+                    styles.checkbox,
+                    permanent === true && styles.checkboxActive,
+                  ]}
+                  onPress={() => setPermanent(true)}
+                />
+                <Text style={styles.labelSmall}>{t.yes}</Text>
 
-          <TouchableOpacity
-            style={styles.calendarButton}
-            onPress={() => {
-              setEndDate('');
-            }}>
-            <Image
-              source={require('../assets/calendar_icon.png')}
-              style={styles.calendarIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        </View>
+                <TouchableOpacity
+                  style={[
+                    styles.checkbox,
+                    permanent === false && styles.checkboxActive,
+                    {marginLeft: 24},
+                  ]}
+                  onPress={() => setPermanent(false)}
+                />
+                <Text style={styles.labelSmall}>{t.no}</Text>
+              </View>
 
-        {/* Einnahmezeiten */}
-        <Text style={[styles.label, {marginTop: 20}]}>{t.intakeTimes}</Text>
-        <View style={styles.row}>
-          <View style={styles.rowCenter}>
-            <TouchableOpacity
-              style={[
-                styles.checkbox,
-                intakeTimes.morning && styles.checkboxActive,
-              ]}
-              onPress={() => toggleIntake('morning')}
-            />
-            <Text style={[styles.labelSmall, {marginLeft: 6}]}>
-              {t.morning}
-            </Text>
-          </View>
+              {/* Datum: Von / Bis */}
+              <View style={[styles.row, {marginTop: 20}]}>
+                <Text style={[styles.labelSmall, {flex: 1}]}>
+                  {t.from}
+                </Text>
+                <Text
+                  style={[
+                    styles.labelSmall,
+                    {flex: 1, textAlign: 'right'},
+                  ]}>
+                  {t.to}
+                </Text>
+              </View>
 
-          <View style={[styles.rowCenter, {marginLeft: 24}]}>
-            <TouchableOpacity
-              style={[
-                styles.checkbox,
-                intakeTimes.noon && styles.checkboxActive,
-              ]}
-              onPress={() => toggleIntake('noon')}
-            />
-            <Text style={[styles.labelSmall, {marginLeft: 6}]}>
-              {t.noon}
-            </Text>
-          </View>
-        </View>
+              <View style={[styles.row, {marginTop: 4}]}>
 
-        <View style={[styles.row, {marginTop: 8}]}>
-          <View style={styles.rowCenter}>
-            <TouchableOpacity
-              style={[
-                styles.checkbox,
-                intakeTimes.evening && styles.checkboxActive,
-              ]}
-              onPress={() => toggleIntake('evening')}
-            />
-            <Text style={[styles.labelSmall, {marginLeft: 6}]}>
-              {t.evening}
-            </Text>
-          </View>
+                {/* Startdatum */}
+                <TouchableOpacity
+                  style={styles.calendarButton}
+                  onPress={() => setShowStartPicker(true)}>
+                  {startDate ? (
+                    <Text style={styles.dateText}>{startDate}</Text>
+                  ) : (
+                    <Image
+                      source={require('../assets/calendar_icon.png')}
+                      style={styles.calendarIcon}
+                      resizeMode="contain"
+                    />
+                  )}
+                </TouchableOpacity>
 
-          <View style={[styles.rowCenter, {marginLeft: 24}]}>
-            <TouchableOpacity
-              style={[
-                styles.checkbox,
-                intakeTimes.night && styles.checkboxActive,
-              ]}
-              onPress={() => toggleIntake('night')}
-            />
-            <Text style={[styles.labelSmall, {marginLeft: 6}]}>
-              {t.night}
-            </Text>
-          </View>
-        </View>
-        {intakeError ? (
-          <Text style={styles.errorText}>{intakeError}</Text>
-        ) : null}
+                {/* Enddatum */}
+                <TouchableOpacity
+                  style={styles.calendarButton}
+                  onPress={() => setShowEndPicker(true)}>
+                  {endDate ? (
+                    <Text style={styles.dateText}>{endDate}</Text>
+                  ) : (
+                    <Image
+                      source={require('../assets/calendar_icon.png')}
+                      style={styles.calendarIcon}
+                      resizeMode="contain"
+                    />
+                  )}
+                </TouchableOpacity>
+              </View>
 
-        {/* Foto */}
-        <Text style={[styles.label, {marginTop: 20}]}>{t.photo}</Text>
-        <TouchableOpacity
-          style={styles.photoBox}
-          onPress={() => {
-            // später Image Picker einbauen
-            setPhotoUri(null);
-          }}>
-          <Image
-            source={require('../assets/photo_placeholder.png')}
-            style={styles.photoIcon}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
+              {/* DatePicker anzeigen */}
+              {showStartPicker && (
+                <DateTimePicker
+                  mode="date"
+                  value={new Date()}
+                  onChange={(_, date) => {
+                    setShowStartPicker(false);
+                    if (date) setStartDate(formatDate(date));
+                  }}
+                />
+              )}
 
-        {/* Notiz */}
-        <Text style={[styles.label, {marginTop: 20}]}>{t.note}</Text>
-        <TextInput
-          style={[styles.input, styles.noteInput]}
-          value={note}
-          onChangeText={setNote}
-          multiline
-          placeholder=""
-          placeholderTextColor="#cccccc"
-        />
+              {showEndPicker && (
+                <DateTimePicker
+                  mode="date"
+                  value={new Date()}
+                  onChange={(_, date) => {
+                    setShowEndPicker(false);
+                    if (date) setEndDate(formatDate(date));
+                  }}
+                />
+              )}
 
-        {/* Buttons */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              !isValidForm && {opacity: 0.5},
-            ]}
-            disabled={!isValidForm}
-            onPress={handleSave}>
-            <Text style={styles.buttonText}>{t.save}</Text>
-          </TouchableOpacity>
+              {/* Einnahmezeiten */}
+              <Text style={[styles.label, {marginTop: 20}]}>
+                {t.intakeTimes}
+              </Text>
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleCancel}>
-            <Text style={styles.buttonText}>{t.cancel}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+              <View style={styles.row}>
+                {/* Morgen */}
+                <TouchableOpacity
+                  style={[
+                    styles.checkbox,
+                    intakeTimes.morning && styles.checkboxActive,
+                  ]}
+                  onPress={() => toggleIntake('morning')}
+                />
+                <Text style={styles.labelSmall}>{t.morning}</Text>
+
+                {/* Mittag */}
+                <TouchableOpacity
+                  style={[
+                    styles.checkbox,
+                    intakeTimes.noon && styles.checkboxActive,
+                    {marginLeft: 24},
+                  ]}
+                  onPress={() => toggleIntake('noon')}
+                />
+                <Text style={styles.labelSmall}>{t.noon}</Text>
+              </View>
+
+              <View style={[styles.row, {marginTop: 8}]}>
+                {/* Abend */}
+                <TouchableOpacity
+                  style={[
+                    styles.checkbox,
+                    intakeTimes.evening && styles.checkboxActive,
+                  ]}
+                  onPress={() => toggleIntake('evening')}
+                />
+                <Text style={styles.labelSmall}>{t.evening}</Text>
+
+                {/* Nacht */}
+                <TouchableOpacity
+                  style={[
+                    styles.checkbox,
+                    intakeTimes.night && styles.checkboxActive,
+                    {marginLeft: 24},
+                  ]}
+                  onPress={() => toggleIntake('night')}
+                />
+                <Text style={styles.labelSmall}>{t.night}</Text>
+              </View>
+
+              {intakeError ? (
+                <Text style={styles.errorText}>{intakeError}</Text>
+              ) : null}
+
+              {/* Foto */}
+              <Text style={[styles.label, {marginTop: 20}]}>
+                {t.photo}
+              </Text>
+
+              <TouchableOpacity
+                style={styles.photoBox}
+                onPress={pickImage}>
+                {photoUri ? (
+                  <Image
+                    source={{uri: photoUri}}
+                    style={styles.photoSelected}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={require('../assets/photo_placeholder.png')}
+                    style={styles.photoIcon}
+                    resizeMode="contain"
+                  />
+                )}
+              </TouchableOpacity>
+
+              {/* Notiz */}
+              <Text style={[styles.label, {marginTop: 20}]}>
+                {t.note}
+              </Text>
+              <TextInput
+                style={[styles.input, styles.noteInput]}
+                value={note}
+                onChangeText={setNote}
+                multiline
+              />
+
+              {/* Buttons */}
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.primaryButton,
+                    !isValidForm && {opacity: 0.5},
+                  ]}
+                  disabled={!isValidForm}
+                  onPress={handleSave}>
+                  <Text style={styles.buttonText}>{t.save}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={handleCancel}>
+                  <Text style={styles.buttonText}>{t.cancel}</Text>
+                </TouchableOpacity>
+              </View>
+
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 };
 
 export default MedicationFormScreen;
 
+/* -------------------------------------------------------------
+   Styles
+   ------------------------------------------------------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0280BE',
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
@@ -440,7 +571,6 @@ const styles = StyleSheet.create({
     height: 70,
   },
   form: {
-    flex: 1,
     paddingHorizontal: 24,
   },
   label: {
@@ -452,6 +582,7 @@ const styles = StyleSheet.create({
   labelSmall: {
     color: '#ffffff',
     fontSize: 14,
+    marginLeft: 6,
   },
   input: {
     height: 36,
@@ -467,10 +598,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 4,
-  },
-  rowCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   checkbox: {
     width: 18,
@@ -489,6 +616,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
   },
+  dateText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
   photoBox: {
     width: 70,
     height: 70,
@@ -501,6 +632,10 @@ const styles = StyleSheet.create({
   photoIcon: {
     width: 40,
     height: 40,
+  },
+  photoSelected: {
+    width: '100%',
+    height: '100%',
   },
   buttonRow: {
     flexDirection: 'row',
