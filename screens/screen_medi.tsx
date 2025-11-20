@@ -11,10 +11,13 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useSettings} from '../App';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 
 /* -------------------------------------------------------------
@@ -43,7 +46,7 @@ type Medication = {
 const MEDS_STORAGE_KEY = '@capsli_medications';
 
 /* -------------------------------------------------------------
-   Übersetzungen des Formulars
+   Uebersetzungen fuer Formular
    ------------------------------------------------------------- */
 const medTranslations: Record<
   Language,
@@ -86,7 +89,7 @@ const medTranslations: Record<
     save: 'Speichern',
     cancel: 'Abbrechen',
     nameRequired: 'Name ist erforderlich',
-    intakeRequired: 'Mindestens eine Einnahmezeit wählen',
+    intakeRequired: 'Mindestens eine Einnahmezeit waehlen',
   },
   fr: {
     title: 'Enregistrer un médicament',
@@ -151,21 +154,19 @@ const medTranslations: Record<
 };
 
 /* -------------------------------------------------------------
-   Props-Typ für Navigation
+   Screen Start
    ------------------------------------------------------------- */
+
 type Props = {
   navigation: any;
 };
 
-/* -------------------------------------------------------------
-   Start des Screens
-   ------------------------------------------------------------- */
 const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
   const {settings} = useSettings();
-  const t = medTranslations[settings.language as Language];
+  const t = medTranslations[settings.language];
 
   /* -----------------------------------------------------------
-     Lokale States des Formulars
+     Lokale States
      ----------------------------------------------------------- */
   const [name, setName] = useState('');
   const [permanent, setPermanent] = useState<boolean | null>(null);
@@ -190,7 +191,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
   const [intakeError, setIntakeError] = useState('');
 
   /* -----------------------------------------------------------
-     Date helper
+     Datum formatiert anzeigen
      ----------------------------------------------------------- */
   const formatDate = (date: Date) => {
     const d = String(date.getDate()).padStart(2, '0');
@@ -207,14 +208,13 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
   };
 
   /* -----------------------------------------------------------
-     Formular prüfen
+     Formular pruefen
      ----------------------------------------------------------- */
   const validate = () => {
     let ok = true;
 
     if (!name.trim()) {
       setNameError(t.nameRequired);
-      ok = false;
     } else {
       setNameError('');
     }
@@ -231,11 +231,13 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
       setIntakeError('');
     }
 
+    if (!name.trim()) ok = false;
+
     return ok;
   };
 
   /* -----------------------------------------------------------
-     Bild aus Bibliothek wählen
+     Bild aus Bibliothek waehlen
      ----------------------------------------------------------- */
   const pickImage = async () => {
     const {status} =
@@ -256,7 +258,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
   };
 
   /* -----------------------------------------------------------
-     Speichern
+     Speichern in AsyncStorage
      ----------------------------------------------------------- */
   const handleSave = async () => {
     if (!validate()) return;
@@ -302,14 +304,13 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
   return (
     <SafeAreaView style={styles.container}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView behavior="padding" style={{flex: 1}}>
+        <KeyboardAvoidingView
+          style={{flex: 1}}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollContent}>
-            
-            {/* ---------------------------------------------------
-                Logo oben
-               --------------------------------------------------- */}
+            {/* Logo */}
             <View style={styles.header}>
               <Image
                 source={require('../assets/logo.png')}
@@ -318,11 +319,8 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
               />
             </View>
 
-            {/* ---------------------------------------------------
-                Formularbereich
-               --------------------------------------------------- */}
+            {/* Formular */}
             <View style={styles.form}>
-
               {/* Name */}
               <Text style={styles.label}>{t.name}</Text>
               <TextInput
@@ -330,7 +328,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
                 value={name}
                 onChangeText={setName}
                 placeholder=""
-                placeholderTextColor="#ccc"
+                placeholderTextColor="#cccccc"
               />
               {nameError ? (
                 <Text style={styles.errorText}>{nameError}</Text>
@@ -340,7 +338,6 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
               <Text style={[styles.label, {marginTop: 16}]}>
                 {t.permanent}
               </Text>
-
               <View style={styles.row}>
                 <TouchableOpacity
                   style={[
@@ -362,7 +359,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
                 <Text style={styles.labelSmall}>{t.no}</Text>
               </View>
 
-              {/* Datum: Von / Bis */}
+              {/* Datum von / bis */}
               <View style={[styles.row, {marginTop: 20}]}>
                 <Text style={[styles.labelSmall, {flex: 1}]}>
                   {t.from}
@@ -377,46 +374,47 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
               </View>
 
               <View style={[styles.row, {marginTop: 4}]}>
-
-                {/* Startdatum */}
+                {/* Startdatum mit Icon + Text darunter */}
                 <TouchableOpacity
                   style={styles.calendarButton}
                   onPress={() => setShowStartPicker(true)}>
+                  <Image
+                    source={require('../assets/calendar_icon.png')}
+                    style={styles.calendarIcon}
+                    resizeMode="contain"
+                  />
                   {startDate ? (
                     <Text style={styles.dateText}>{startDate}</Text>
-                  ) : (
-                    <Image
-                      source={require('../assets/calendar_icon.png')}
-                      style={styles.calendarIcon}
-                      resizeMode="contain"
-                    />
-                  )}
+                  ) : null}
                 </TouchableOpacity>
 
-                {/* Enddatum */}
+                {/* Enddatum mit Icon + Text darunter */}
                 <TouchableOpacity
                   style={styles.calendarButton}
                   onPress={() => setShowEndPicker(true)}>
+                  <Image
+                    source={require('../assets/calendar_icon.png')}
+                    style={styles.calendarIcon}
+                    resizeMode="contain"
+                  />
                   {endDate ? (
                     <Text style={styles.dateText}>{endDate}</Text>
-                  ) : (
-                    <Image
-                      source={require('../assets/calendar_icon.png')}
-                      style={styles.calendarIcon}
-                      resizeMode="contain"
-                    />
-                  )}
+                  ) : null}
                 </TouchableOpacity>
               </View>
 
-              {/* DatePicker anzeigen */}
+              {/* DatePicker Komponenten */}
               {showStartPicker && (
                 <DateTimePicker
                   mode="date"
                   value={new Date()}
-                  onChange={(_, date) => {
-                    setShowStartPicker(false);
-                    if (date) setStartDate(formatDate(date));
+                  onChange={(e: DateTimePickerEvent, date?: Date) => {
+                    if (Platform.OS !== 'ios') {
+                      setShowStartPicker(false);
+                    }
+                    if (date) {
+                      setStartDate(formatDate(date));
+                    }
                   }}
                 />
               )}
@@ -425,9 +423,13 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
                 <DateTimePicker
                   mode="date"
                   value={new Date()}
-                  onChange={(_, date) => {
-                    setShowEndPicker(false);
-                    if (date) setEndDate(formatDate(date));
+                  onChange={(e: DateTimePickerEvent, date?: Date) => {
+                    if (Platform.OS !== 'ios') {
+                      setShowEndPicker(false);
+                    }
+                    if (date) {
+                      setEndDate(formatDate(date));
+                    }
                   }}
                 />
               )}
@@ -438,7 +440,6 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
               </Text>
 
               <View style={styles.row}>
-                {/* Morgen */}
                 <TouchableOpacity
                   style={[
                     styles.checkbox,
@@ -448,7 +449,6 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
                 />
                 <Text style={styles.labelSmall}>{t.morning}</Text>
 
-                {/* Mittag */}
                 <TouchableOpacity
                   style={[
                     styles.checkbox,
@@ -461,7 +461,6 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
               </View>
 
               <View style={[styles.row, {marginTop: 8}]}>
-                {/* Abend */}
                 <TouchableOpacity
                   style={[
                     styles.checkbox,
@@ -471,7 +470,6 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
                 />
                 <Text style={styles.labelSmall}>{t.evening}</Text>
 
-                {/* Nacht */}
                 <TouchableOpacity
                   style={[
                     styles.checkbox,
@@ -491,7 +489,6 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
               <Text style={[styles.label, {marginTop: 20}]}>
                 {t.photo}
               </Text>
-
               <TouchableOpacity
                 style={styles.photoBox}
                 onPress={pickImage}>
@@ -539,7 +536,6 @@ const MedicationFormScreen: React.FC<Props> = ({navigation}) => {
                   <Text style={styles.buttonText}>{t.cancel}</Text>
                 </TouchableOpacity>
               </View>
-
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -553,6 +549,7 @@ export default MedicationFormScreen;
 /* -------------------------------------------------------------
    Styles
    ------------------------------------------------------------- */
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -617,8 +614,9 @@ const styles = StyleSheet.create({
     height: 40,
   },
   dateText: {
+    marginTop: 4,
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 14,
   },
   photoBox: {
     width: 70,

@@ -15,15 +15,45 @@ import {
   Image,
   TextInput,
   Modal,
+  ScrollView,
 } from 'react-native';
-import {NavigationContainer} from '@react-navigation/native';
+import {
+  NavigationContainer,
+  useFocusEffect,
+} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MedicationFormScreen from './screens/screen_medi';
 
-/* Dashboard (als leerer Inhalt)*/
+/* -------------------------------------------------------------
+   Basis Typen (Sprache, Einnahmezeiten, Medikamente)
+   ------------------------------------------------------------- */
 
 type Language = 'de' | 'fr' | 'en' | 'it';
+
+type IntakeTimes = {
+  morning: boolean;
+  noon: boolean;
+  evening: boolean;
+  night: boolean;
+};
+
+type Medication = {
+  id: string;
+  name: string;
+  permanent: boolean | null;
+  startDate: string | null;
+  endDate: string | null;
+  intakeTimes: IntakeTimes;
+  note: string;
+  photoUri?: string | null;
+};
+
+const MEDS_STORAGE_KEY = '@capsli_medications';
+
+/* -------------------------------------------------------------
+   Navigation Typen
+   ------------------------------------------------------------- */
 
 type RootStackParamList = {
   Dashboard: undefined;
@@ -33,7 +63,9 @@ type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-/* ------------------------ i18n / Texte ------------------------ */
+/* -------------------------------------------------------------
+   Uebersetzungen fuer Dashboard / Profil
+   ------------------------------------------------------------- */
 
 const translations: Record<
   Language,
@@ -59,6 +91,14 @@ const translations: Record<
     infoChat: string;
     infoPhoneNumber: string;
     infoClose: string;
+    edit: string;
+    fromToConnector: string;
+
+    // Labels fuer Einnahmezeiten im Dashboard
+    morning: string;
+    noon: string;
+    evening: string;
+    night: string;
   }
 > = {
   de: {
@@ -69,7 +109,7 @@ const translations: Record<
     on: 'Ein',
     off: 'Aus',
     language: 'Sprache :',
-    choose: 'wählen',
+    choose: 'waehlen',
     infoDisclaimer: 'Info/Disclaimer',
     disclaimerText: '(Dies ist keine medizinische Beratung)',
     versionLabel: 'App-Version :',
@@ -77,12 +117,18 @@ const translations: Record<
     noMeds: 'keine Medikamente erfasst',
     save: 'Speichern',
     cancel: 'Abbrechen',
-    chooseLanguageTitle: 'Sprache wählen',
+    chooseLanguageTitle: 'Sprache waehlen',
     infoQuestion: 'Möchten Sie eine telefonische Beratung oder einen Chat?',
     infoPhone: 'Telefonberatung',
     infoChat: 'Chat',
     infoPhoneNumber: 'Telefon: 044 235 65 41',
     infoClose: 'Schliessen',
+    edit: 'Bearbeiten',
+    fromToConnector: ' bis ',
+    morning: 'Morgen',
+    noon: 'Mittag',
+    evening: 'Abend',
+    night: 'Nacht',
   },
   fr: {
     capsliUser: 'Utilisateur·rice Capsli',
@@ -107,6 +153,12 @@ const translations: Record<
     infoChat: 'Chat',
     infoPhoneNumber: 'Téléphone : 044 235 65 41',
     infoClose: 'Fermer',
+    edit: 'Modifier',
+    fromToConnector: ' au ',
+    morning: 'Matin',
+    noon: 'Midi',
+    evening: 'Soir',
+    night: 'Nuit',
   },
   en: {
     capsliUser: 'Capsli User',
@@ -130,6 +182,12 @@ const translations: Record<
     infoChat: 'Chat',
     infoPhoneNumber: 'Phone: 044 235 65 41',
     infoClose: 'Close',
+    edit: 'Edit',
+    fromToConnector: ' to ',
+    morning: 'Morning',
+    noon: 'Noon',
+    evening: 'Evening',
+    night: 'Night',
   },
   it: {
     capsliUser: 'Utente Capsli',
@@ -154,10 +212,18 @@ const translations: Record<
     infoChat: 'Chat',
     infoPhoneNumber: 'Telefono: 044 235 65 41',
     infoClose: 'Chiudi',
+    edit: 'Modifica',
+    fromToConnector: ' a ',
+    morning: 'Mattina',
+    noon: 'Mezzogiorno',
+    evening: 'Sera',
+    night: 'Notte',
   },
 };
 
-/* ------------------------ Settings Context ------------------------ */
+/* -------------------------------------------------------------
+   Settings Context (Profil / Sprache etc.)
+   ------------------------------------------------------------- */
 
 type Settings = {
   name: string;
@@ -183,16 +249,17 @@ const SettingsContext = createContext<SettingsContextType>({
   updateSettings: () => {},
 });
 
-const STORAGE_KEY = '@capsli_profile';
+const PROFILE_STORAGE_KEY = '@capsli_profile';
 
 const SettingsProvider = ({children}: {children: ReactNode}) => {
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [settings, setSettings] =
+    useState<Settings>(defaultSettings);
 
-  // Laden aus "Datenbank" (AsyncStorage)
+  // Profil aus Speicher laden
   useEffect(() => {
     const load = async () => {
       try {
-        const json = await AsyncStorage.getItem(STORAGE_KEY);
+        const json = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
         if (json) {
           const parsed = JSON.parse(json);
           setSettings({...defaultSettings, ...parsed});
@@ -204,11 +271,14 @@ const SettingsProvider = ({children}: {children: ReactNode}) => {
     load();
   }, []);
 
-  // Speichern, wenn sich etwas aendert
+  // Profil in Speicher schreiben
   useEffect(() => {
     const save = async () => {
       try {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        await AsyncStorage.setItem(
+          PROFILE_STORAGE_KEY,
+          JSON.stringify(settings),
+        );
       } catch (e) {
         console.log('Fehler beim Speichern der Settings', e);
       }
@@ -229,15 +299,55 @@ const SettingsProvider = ({children}: {children: ReactNode}) => {
 
 export const useSettings = () => useContext(SettingsContext);
 
-/* Dashboard (als leerer Inhalt) */
+/* -------------------------------------------------------------
+   Dashboard Screen
+   ------------------------------------------------------------- */
 
 type DashboardProps = {
   navigation: any;
 };
 
-const DashboardEmptyScreen: React.FC<DashboardProps> = ({navigation}) => {
+const DashboardEmptyScreen: React.FC<DashboardProps> = ({
+  navigation,
+}) => {
   const {settings} = useSettings();
   const t = translations[settings.language];
+
+  const [medications, setMedications] = useState<Medication[]>([]);
+
+  // Medikamente laden, wenn Dashboard im Fokus ist
+  useFocusEffect(
+    React.useCallback(() => {
+      let active = true;
+
+      const loadMeds = async () => {
+        try {
+          const json = await AsyncStorage.getItem(MEDS_STORAGE_KEY);
+          const list: Medication[] = json ? JSON.parse(json) : [];
+          if (active) {
+            setMedications(list);
+          }
+        } catch (e) {
+          console.log('Fehler beim Laden der Medikamente', e);
+        }
+      };
+
+      loadMeds();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  /* Hilfstext fuer Einnahmezeiten */
+  const getIntakeText = (m: Medication) => {
+    const parts: string[] = [];
+    if (m.intakeTimes.morning) parts.push(t.morning);
+    if (m.intakeTimes.noon) parts.push(t.noon);
+    if (m.intakeTimes.evening) parts.push(t.evening);
+    if (m.intakeTimes.night) parts.push(t.night);
+    return parts.join(', ');
+  };
 
   return (
     <View style={styles.container}>
@@ -250,11 +360,65 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({navigation}) => {
         />
       </View>
 
-      {/* Inhalt */}
+      {/* Inhalt: entweder leerer Hinweis oder Liste mit Medikamenten */}
       <View style={styles.content}>
-        <View style={styles.emptyBox}>
-          <Text style={styles.emptyText}>{t.noMeds}</Text>
-        </View>
+        {medications.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>{t.noMeds}</Text>
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.medListContent}
+            showsVerticalScrollIndicator={false}>
+            {medications.map(m => (
+              <View key={m.id} style={styles.medCard}>
+                {/* Linke Seite: Texte */}
+                <View style={styles.medTextArea}>
+                  <Text style={styles.medName}>{m.name}</Text>
+
+                  {(m.startDate || m.endDate) && (
+                    <Text style={styles.medDate}>
+                      {m.startDate ?? ''}
+                      {m.startDate && m.endDate
+                        ? t.fromToConnector
+                        : ''}
+                      {m.endDate ?? ''}
+                    </Text>
+                  )}
+
+                  {getIntakeText(m) ? (
+                    <Text style={styles.medIntake}>
+                      {getIntakeText(m)}
+                    </Text>
+                  ) : null}
+
+                  {m.note ? (
+                    <Text style={styles.medNote}>{m.note}</Text>
+                  ) : null}
+                </View>
+
+                {/* Rechte Seite: Bild + Bearbeiten Button */}
+                <View style={styles.medRightArea}>
+                  {m.photoUri ? (
+                    <Image
+                      source={{uri: m.photoUri}}
+                      style={styles.medPhoto}
+                      resizeMode="cover"
+                    />
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() =>
+                      navigation.navigate('MedicationForm')
+                    }>
+                    <Text style={styles.editButtonText}>{t.edit}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       {/* Navigation unten */}
@@ -270,8 +434,8 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({navigation}) => {
 
         {/* Grosser Plus Button */}
         <TouchableOpacity
-             style={styles.addButton}
-             onPress={() => navigation.navigate('MedicationForm')}>
+          style={styles.addButton}
+          onPress={() => navigation.navigate('MedicationForm')}>
           <Image
             source={require('./assets/Bild_Plus_Button.png')}
             style={styles.addButtonImage}
@@ -280,7 +444,8 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({navigation}) => {
         </TouchableOpacity>
 
         {/* Profil */}
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Profile')}>
           <Image
             source={require('./assets/profil_icon.png')}
             style={styles.profileIcon}
@@ -292,7 +457,9 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({navigation}) => {
   );
 };
 
-/* Capsli-User */
+/* -------------------------------------------------------------
+   Profil Screen
+   ------------------------------------------------------------- */
 
 type ProfileProps = {
   navigation: any;
@@ -304,19 +471,19 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
 
   // Lokaler State fuer Formular
   const [localName, setLocalName] = useState(settings.name);
-  const [localFirstName, setLocalFirstName] = useState(settings.firstName);
-  const [localNotificationsEnabled, setLocalNotificationsEnabled] = useState(
-    settings.notificationsEnabled,
-  );
-  const [localLanguage, setLocalLanguage] = useState<Language>(
-    settings.language,
-  );
+  const [localFirstName, setLocalFirstName] =
+    useState(settings.firstName);
+  const [localNotificationsEnabled, setLocalNotificationsEnabled] =
+    useState(settings.notificationsEnabled);
+  const [localLanguage, setLocalLanguage] =
+    useState<Language>(settings.language);
 
-  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [languageModalVisible, setLanguageModalVisible] =
+    useState(false);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [showPhoneNumber, setShowPhoneNumber] = useState(false);
 
-  // Settings-Aenderungen von aussen ins Formular spiegeln
+  // Settings Aenderungen in Formular spiegeln
   useEffect(() => {
     setLocalName(settings.name);
     setLocalFirstName(settings.firstName);
@@ -331,16 +498,15 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
       notificationsEnabled: localNotificationsEnabled,
       language: localLanguage,
     });
-    navigation.goBack(); // Zurueck zum Dashboard
+    navigation.goBack();
   };
 
   const handleCancel = () => {
-    // Lokale Werte zuruecksetzen
     setLocalName(settings.name);
     setLocalFirstName(settings.firstName);
     setLocalNotificationsEnabled(settings.notificationsEnabled);
     setLocalLanguage(settings.language);
-    navigation.goBack(); // Zurueck zum Dashboard ohne zu speichern
+    navigation.goBack();
   };
 
   const currentTranslations = translations[localLanguage];
@@ -365,10 +531,12 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
           style={styles.profileLogo}
           resizeMode="contain"
         />
-        <Text style={styles.profileTitle}>{currentTranslations.capsliUser}</Text>
+        <Text style={styles.profileTitle}>
+          {currentTranslations.capsliUser}
+        </Text>
       </View>
 
-      {/* Hauptinhalt */}
+      {/* Hauptinhalt Profilformular */}
       <View style={styles.profileForm}>
         {/* Name */}
         <Text style={styles.label}>{currentTranslations.name}</Text>
@@ -381,19 +549,28 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
         />
 
         {/* Vorname */}
-        <Text style={styles.label}>{currentTranslations.firstName}</Text>
+        <Text style={styles.label}>
+          {currentTranslations.firstName}
+        </Text>
         <TextInput
           style={styles.input}
           value={localFirstName}
           onChangeText={setLocalFirstName}
-          placeholder={currentTranslations.firstName.replace(':', '')}
+          placeholder={currentTranslations.firstName.replace(
+            ':',
+            '',
+          )}
           placeholderTextColor="#888"
         />
 
         {/* Benachrichtigungen */}
-        <Text style={styles.label}>{currentTranslations.notifications}</Text>
+        <Text style={styles.label}>
+          {currentTranslations.notifications}
+        </Text>
         <View style={styles.row}>
-          <Text style={styles.labelSmall}>{currentTranslations.on}</Text>
+          <Text style={styles.labelSmall}>
+            {currentTranslations.on}
+          </Text>
           <TouchableOpacity
             style={[
               styles.checkbox,
@@ -414,20 +591,32 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
         </View>
 
         {/* Sprache */}
-        <Text style={styles.label}>{currentTranslations.language}</Text>
+        <Text style={styles.label}>
+          {currentTranslations.language}
+        </Text>
         <TouchableOpacity
           style={styles.languageButton}
           onPress={() => setLanguageModalVisible(true)}>
-          <Text style={styles.languageButtonText}>{languageLabel}</Text>
+          <Text style={styles.languageButtonText}>
+            {languageLabel}
+          </Text>
         </TouchableOpacity>
 
         {/* Buttons Speichern / Abbrechen */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
-            <Text style={styles.buttonText}>{currentTranslations.save}</Text>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleSave}>
+            <Text style={styles.buttonText}>
+              {currentTranslations.save}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleCancel}>
-            <Text style={styles.buttonText}>{currentTranslations.cancel}</Text>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={handleCancel}>
+            <Text style={styles.buttonText}>
+              {currentTranslations.cancel}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -459,7 +648,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
         {currentTranslations.versionLabel} {currentTranslations.version}
       </Text>
 
-      {/* Sprache-Auswahl Modal */}
+      {/* Modal: Sprache waehlen */}
       <Modal
         transparent
         visible={languageModalVisible}
@@ -518,7 +707,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
         </View>
       </Modal>
 
-      {/* Info / i-Icon Modal */}
+      {/* Modal: Info / i-Icon */}
       <Modal
         transparent
         visible={infoModalVisible}
@@ -546,7 +735,6 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
                 <TouchableOpacity
                   style={styles.modalOption}
                   onPress={() => {
-                    // Hier koennen Sie spaeter die Chat-Funktion anbinden
                     setInfoModalVisible(false);
                     setShowPhoneNumber(false);
                   }}>
@@ -590,7 +778,9 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
   );
 };
 
-/* ------------------------ App Root ------------------------ */
+/* -------------------------------------------------------------
+   App Root
+   ------------------------------------------------------------- */
 
 const App: React.FC = () => {
   return (
@@ -599,9 +789,15 @@ const App: React.FC = () => {
         <SafeAreaView style={{flex: 1, backgroundColor: '#ffffff'}}>
           <StatusBar barStyle="light-content" />
           <Stack.Navigator screenOptions={{headerShown: false}}>
-            <Stack.Screen name="Dashboard" component={DashboardEmptyScreen} />
+            <Stack.Screen
+              name="Dashboard"
+              component={DashboardEmptyScreen}
+            />
             <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="MedicationForm" component={MedicationFormScreen} />
+            <Stack.Screen
+              name="MedicationForm"
+              component={MedicationFormScreen}
+            />
           </Stack.Navigator>
         </SafeAreaView>
       </NavigationContainer>
@@ -611,12 +807,15 @@ const App: React.FC = () => {
 
 export default App;
 
-/* ------------------------ Styles ------------------------ */
+/* -------------------------------------------------------------
+   Styles
+   ------------------------------------------------------------- */
 
 const HEADER_HEIGHT = 80;
 const BOTTOM_NAV_HEIGHT = 80;
 
 const styles = StyleSheet.create({
+  /* Allgemein */
   container: {
     flex: 1,
     backgroundColor: '#f6f6f6',
@@ -634,13 +833,17 @@ const styles = StyleSheet.create({
     height: 60,
   },
 
-  /* Hauptinhalt */
+  /* Hauptinhalt Dashboard */
   content: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
+
+  /* Wenn keine Medikamente vorhanden sind */
   emptyBox: {
+    alignSelf: 'center',
+    marginTop: 40,
     paddingVertical: 10,
     paddingHorizontal: 16,
     backgroundColor: '#e0e0e0',
@@ -649,6 +852,57 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#000000',
+  },
+
+  /* Liste der Medikamente */
+  medListContent: {
+    paddingBottom: 8,
+  },
+  medCard: {
+    flexDirection: 'row',
+    backgroundColor: '#e0e0e0',
+    padding: 8,
+    marginBottom: 8,
+  },
+  medTextArea: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  medName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  medDate: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  medIntake: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  medNote: {
+    fontSize: 12,
+  },
+  medRightArea: {
+    width: 90,
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  medPhoto: {
+    width: 80,
+    height: 80,
+    marginBottom: 4,
+  },
+  editButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#00b0aa',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  editButtonText: {
+    fontSize: 12,
+    color: '#ffffff',
   },
 
   /* Untere Leiste */
@@ -660,8 +914,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingHorizontal: 32,
   },
-
-  /* Grosser Plus Button */
   addButton: {
     width: 80,
     height: 80,
@@ -677,8 +929,6 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
   },
-
-  /* Icons (Uhr & Typ) in der Leiste */
   smallIconImage: {
     width: 46,
     height: 46,
@@ -688,7 +938,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
 
-  /* Capsli-User */
+  /* Profil Screen */
   profileContainer: {
     flex: 1,
     backgroundColor: '#0280BE',
@@ -721,6 +971,7 @@ const styles = StyleSheet.create({
   labelSmall: {
     color: '#ffffff',
     fontSize: 14,
+    marginLeft: 6,
   },
   input: {
     height: 36,
@@ -755,8 +1006,6 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
   },
-
-  /* Buttons Speichern / Abbrechen */
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -782,7 +1031,6 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
   },
-
   profileFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -820,7 +1068,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  /* Modals */
+  /* Modals allgemein */
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
