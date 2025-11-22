@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   SafeAreaView,
   StatusBar,
@@ -23,7 +17,9 @@ import {
 } from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import MedicationFormScreen from './screens/screen_medi';
+import {SettingsProvider, useSettings} from './SettingsContext';
 
 /* -------------------------------------------------------------
    Basis Typen (Sprache, Einnahmezeiten, Medikamente)
@@ -58,7 +54,8 @@ const MEDS_STORAGE_KEY = '@capsli_medications';
 type RootStackParamList = {
   Dashboard: undefined;
   Profile: undefined;
-  MedicationForm: undefined;
+  // MedicationForm kann optional eine medicationId bekommen
+  MedicationForm: {medicationId?: string} | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -222,84 +219,6 @@ const translations: Record<
 };
 
 /* -------------------------------------------------------------
-   Settings Context (Profil / Sprache etc.)
-   ------------------------------------------------------------- */
-
-type Settings = {
-  name: string;
-  firstName: string;
-  notificationsEnabled: boolean;
-  language: Language;
-};
-
-type SettingsContextType = {
-  settings: Settings;
-  updateSettings: (patch: Partial<Settings>) => void;
-};
-
-const defaultSettings: Settings = {
-  name: '',
-  firstName: '',
-  notificationsEnabled: false,
-  language: 'de',
-};
-
-const SettingsContext = createContext<SettingsContextType>({
-  settings: defaultSettings,
-  updateSettings: () => {},
-});
-
-const PROFILE_STORAGE_KEY = '@capsli_profile';
-
-const SettingsProvider = ({children}: {children: ReactNode}) => {
-  const [settings, setSettings] =
-    useState<Settings>(defaultSettings);
-
-  // Profil aus Speicher laden
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const json = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
-        if (json) {
-          const parsed = JSON.parse(json);
-          setSettings({...defaultSettings, ...parsed});
-        }
-      } catch (e) {
-        console.log('Fehler beim Laden der Settings', e);
-      }
-    };
-    load();
-  }, []);
-
-  // Profil in Speicher schreiben
-  useEffect(() => {
-    const save = async () => {
-      try {
-        await AsyncStorage.setItem(
-          PROFILE_STORAGE_KEY,
-          JSON.stringify(settings),
-        );
-      } catch (e) {
-        console.log('Fehler beim Speichern der Settings', e);
-      }
-    };
-    save();
-  }, [settings]);
-
-  const updateSettings = (patch: Partial<Settings>) => {
-    setSettings(prev => ({...prev, ...patch}));
-  };
-
-  return (
-    <SettingsContext.Provider value={{settings, updateSettings}}>
-      {children}
-    </SettingsContext.Provider>
-  );
-};
-
-export const useSettings = () => useContext(SettingsContext);
-
-/* -------------------------------------------------------------
    Dashboard Screen
    ------------------------------------------------------------- */
 
@@ -315,7 +234,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
 
   const [medications, setMedications] = useState<Medication[]>([]);
 
-  // Medikamente laden, wenn Dashboard im Fokus ist
+  // Medikamente aus AsyncStorage laden, wenn das Dashboard im Fokus ist
   useFocusEffect(
     React.useCallback(() => {
       let active = true;
@@ -339,7 +258,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
     }, []),
   );
 
-  /* Hilfstext fuer Einnahmezeiten */
+  // Hilfsfunktion fuer Einnahmezeiten als Text
   const getIntakeText = (m: Medication) => {
     const parts: string[] = [];
     if (m.intakeTimes.morning) parts.push(t.morning);
@@ -354,7 +273,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
       {/* Header mit Logo */}
       <View style={styles.header}>
         <Image
-          source={require('./assets/logo.png')}
+          source={require('./assets/logo-icon.png')}
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -362,18 +281,21 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
 
       {/* Inhalt: entweder leerer Hinweis oder Liste mit Medikamenten */}
       <View style={styles.content}>
-  {medications.length === 0 ? (
-    <View style={styles.emptyBox}>
-      <Text style={styles.emptyText}>{t.noMeds}</Text>
-    </View>
-  ) : (
-    // Liste mit Medikamenten
-    <ScrollView
-      contentContainerStyle={styles.medListContent}
-      showsVerticalScrollIndicator={false}>
-      {medications.map(m => (
+        {medications.length === 0 ? (
+          // Leerzustand: Hinweis in einer Box
+          <View style={styles.emptyWrapper}>
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyText}>{t.noMeds}</Text>
+            </View>
+          </View>
+        ) : (
+          // Liste mit Medikamenten
+          <ScrollView
+            contentContainerStyle={styles.medListContent}
+            showsVerticalScrollIndicator={false}>
+            {medications.map(m => (
               <View key={m.id} style={styles.medCard}>
-                {/* Linke Seite: Texte */}
+                {/* Linke Seite: Texte (Name, Zeitraum, Einnahmezeiten, Notiz) */}
                 <View style={styles.medTextArea}>
                   <Text style={styles.medName}>{m.name}</Text>
 
@@ -398,7 +320,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
                   ) : null}
                 </View>
 
-                {/* Rechte Seite: Bild + Bearbeiten Button */}
+                {/* Rechte Seite: Bild + «Bearbeiten»-Button */}
                 <View style={styles.medRightArea}>
                   {m.photoUri ? (
                     <Image
@@ -410,8 +332,14 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
 
                   <TouchableOpacity
                     style={styles.editButton}
-                    onPress={() => navigation.navigate('MedicationForm', {medicationId: m.id})}>
-                    <Text style={styles.editButtonText}>Bearbeiten</Text>
+                    onPress={() =>
+                      navigation.navigate('MedicationForm', {
+                        medicationId: m.id,
+                      })
+                    }>
+                    <Text style={styles.editButtonText}>
+                      {t.edit}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -420,9 +348,9 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
         )}
       </View>
 
-      {/* Navigation unten */}
+      {/* Untere Navigationsleiste */}
       <View style={styles.bottomBar}>
-        {/* Uhr */}
+        {/* Uhr (Platzhalter fuer spaetere Funktion) */}
         <TouchableOpacity>
           <Image
             source={require('./assets/clock_icon.png')}
@@ -431,7 +359,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Grosser Plus Button */}
+        {/* Grosser Plus Button -> neues Medikament erfassen */}
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('MedicationForm')}>
@@ -442,7 +370,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Profil */}
+        {/* Profil-Icon */}
         <TouchableOpacity
           onPress={() => navigation.navigate('Profile')}>
           <Image
@@ -468,7 +396,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
   const {settings, updateSettings} = useSettings();
   const t = translations[settings.language];
 
-  // Lokaler State fuer Formular
+  // Lokaler State fuer Formular (Name, Vorname, Notifications, Sprache)
   const [localName, setLocalName] = useState(settings.name);
   const [localFirstName, setLocalFirstName] =
     useState(settings.firstName);
@@ -482,7 +410,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [showPhoneNumber, setShowPhoneNumber] = useState(false);
 
-  // Settings Aenderungen in Formular spiegeln
+  // Wenn sich Settings aendern, Formularwerte aktualisieren
   useEffect(() => {
     setLocalName(settings.name);
     setLocalFirstName(settings.firstName);
@@ -523,10 +451,10 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
     <SafeAreaView style={styles.profileContainer}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header mit Logo */}
+      {/* Header mit Logo und Titel */}
       <View style={styles.profileHeader}>
         <Image
-          source={require('./assets/logo.png')}
+          source={require('./assets/logo-icon.png')}
           style={styles.profileLogo}
           resizeMode="contain"
         />
@@ -620,7 +548,7 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
         </View>
       </View>
 
-      {/* Info / Disclaimer */}
+      {/* Info / Disclaimer unten */}
       <View style={styles.profileFooter}>
         <View>
           <Text style={styles.infoTitle}>
@@ -644,7 +572,8 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
 
       {/* App-Version */}
       <Text style={styles.versionText}>
-        {currentTranslations.versionLabel} {currentTranslations.version}
+        {currentTranslations.versionLabel}{' '}
+        {currentTranslations.version}
       </Text>
 
       {/* Modal: Sprache waehlen */}
@@ -785,14 +714,18 @@ const App: React.FC = () => {
   return (
     <SettingsProvider>
       <NavigationContainer>
-        <SafeAreaView style={{flex: 1, backgroundColor: '#ffffff'}}>
+        <SafeAreaView
+          style={{flex: 1, backgroundColor: '#ffffff'}}>
           <StatusBar barStyle="light-content" />
           <Stack.Navigator screenOptions={{headerShown: false}}>
             <Stack.Screen
               name="Dashboard"
               component={DashboardEmptyScreen}
             />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+            />
             <Stack.Screen
               name="MedicationForm"
               component={MedicationFormScreen}
@@ -814,7 +747,7 @@ const HEADER_HEIGHT = 80;
 const BOTTOM_NAV_HEIGHT = 80;
 
 const styles = StyleSheet.create({
-  /* Allgemein */
+  /* Allgemein Dashboard */
   container: {
     flex: 1,
     backgroundColor: '#f6f6f6',
@@ -836,18 +769,18 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
   },
 
-  /* Wrapper "keine Medikamente erfasst" */
+  /* Leerzustand-Wrapper */
   emptyWrapper: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  /* Box um den Text herum */
+  /* Box um den Text «keine Medikamente erfasst» */
   emptyBox: {
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -861,7 +794,73 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
 
-  /* Untere Leiste */
+  /* Liste der Medikamente */
+  medListContent: {
+    paddingVertical: 16,
+    paddingBottom: 24,
+  },
+  medCard: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  medTextArea: {
+    flex: 1,
+    marginRight: 8,
+  },
+  medName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+    color: '#000000',
+  },
+  medDate: {
+    fontSize: 13,
+    color: '#444444',
+    marginBottom: 2,
+  },
+  medIntake: {
+    fontSize: 13,
+    color: '#0280BE',
+    marginBottom: 2,
+  },
+  medNote: {
+    fontSize: 12,
+    color: '#555555',
+    marginTop: 4,
+  },
+
+  /* Rechte Seite der Medikament-Karte */
+  medRightArea: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  medPhoto: {
+    width: 60,
+    height: 60,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  editButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#0280BE',
+  },
+  editButtonText: {
+    fontSize: 12,
+    color: '#0280BE',
+  },
+
+  /* Untere Navigationsleiste */
   bottomBar: {
     height: BOTTOM_NAV_HEIGHT,
     backgroundColor: '#0280BE',
@@ -888,7 +887,7 @@ const styles = StyleSheet.create({
     height: 54,
   },
 
-  /* Icons (Uhr & Typ) in der Leiste */
+  /* Icons (Uhr & Profil) in der Leiste */
   smallIconImage: {
     width: 46,
     height: 46,
@@ -898,7 +897,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
 
-  /* Capsli-User */
+  /* Profil-Screen */
   profileContainer: {
     flex: 1,
     backgroundColor: '#0280BE',
@@ -931,6 +930,7 @@ const styles = StyleSheet.create({
   labelSmall: {
     color: '#ffffff',
     fontSize: 14,
+    marginLeft: 6,
   },
   input: {
     height: 36,

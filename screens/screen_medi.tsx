@@ -13,11 +13,12 @@ import {
   Keyboard,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useSettings} from '../App';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+
+import {useSettings} from '../SettingsContext';
 
 /* -------------------------------------------------------------
    Typen
@@ -170,18 +171,19 @@ const formatDate = (date: Date) => {
 /* -------------------------------------------------------------
    Screen: Neu erfassen ODER bearbeiten
    ------------------------------------------------------------- */
-const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
+const MedicationFormScreen: React.FC<Props> = ({
+  navigation,
+  route,
+}) => {
   const {settings} = useSettings();
   const t = medTranslations[settings.language as Language];
 
-  /* ist es Bearbeiten? -> id kommt über route.params.medicationId */
+  // Ist es Bearbeiten? -> id kommt ueber route.params.medicationId
   const editingMedicationId = route?.params?.medicationId as
     | string
     | undefined;
 
-  /* -----------------------------------------------------------
-     Lokale States des Formulars
-     ----------------------------------------------------------- */
+  /* Lokale States des Formulars */
   const [name, setName] = useState('');
   const [permanent, setPermanent] = useState<boolean | null>(null);
 
@@ -204,8 +206,9 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
   const [intakeError, setIntakeError] = useState('');
 
   /* -----------------------------------------------------------
-     Beim Start: wenn neu -> Startdatum heute
-                 wenn Bearbeiten -> Daten aus Storage laden
+     Beim Start:
+       - wenn neu -> Startdatum heute
+       - wenn Bearbeiten -> Daten aus Storage laden
      ----------------------------------------------------------- */
   useEffect(() => {
     const init = async () => {
@@ -237,16 +240,12 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
     init();
   }, [editingMedicationId]);
 
-  /* -----------------------------------------------------------
-     Einnahmezeiten umschalten
-     ----------------------------------------------------------- */
+  /* Einnahmezeiten umschalten */
   const toggleIntake = (key: keyof IntakeTimes) => {
     setIntakeTimes(prev => ({...prev, [key]: !prev[key]}));
   };
 
-  /* -----------------------------------------------------------
-     Formular pruefen
-     ----------------------------------------------------------- */
+  /* Formular pruefen */
   const validate = () => {
     let ok = true;
 
@@ -257,12 +256,13 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
       setNameError('');
     }
 
-    if (
-      !intakeTimes.morning &&
-      !intakeTimes.noon &&
-      !intakeTimes.evening &&
-      !intakeTimes.night
-    ) {
+    const hasIntake =
+      intakeTimes.morning ||
+      intakeTimes.noon ||
+      intakeTimes.evening ||
+      intakeTimes.night;
+
+    if (!hasIntake) {
       setIntakeError(t.intakeRequired);
       ok = false;
     } else {
@@ -272,14 +272,12 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
     return ok;
   };
 
-  /* -----------------------------------------------------------
-     Bild aus Bibliothek waehlen
-     ----------------------------------------------------------- */
+  /* Bild aus Bibliothek waehlen */
   const pickImage = async () => {
     const {status} =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      alert('Zugriff auf die Fotobibliothek ist nötig.');
+      alert('Zugriff auf die Fotobibliothek ist noetig.');
       return;
     }
 
@@ -293,9 +291,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
     }
   };
 
-  /* -----------------------------------------------------------
-     Speichern (neu oder Bearbeiten)
-     ----------------------------------------------------------- */
+  /* Speichern (neu oder Bearbeiten) */
   const handleSave = async () => {
     if (!validate()) return;
 
@@ -320,7 +316,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
           m.id === editingMedicationId ? newMedication : m,
         );
       } else {
-        // Neu: anhängen
+        // Neu: anhaengen
         list.push(newMedication);
       }
 
@@ -335,9 +331,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
     navigation.goBack();
   };
 
-  /* -----------------------------------------------------------
-     Löschen (nur im Bearbeiten Modus sichtbar)
-     ----------------------------------------------------------- */
+  /* Loeschen (nur im Bearbeiten Modus sichtbar) */
   const handleDelete = async () => {
     if (!editingMedicationId) {
       navigation.goBack();
@@ -353,20 +347,24 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
         JSON.stringify(filtered),
       );
     } catch (e) {
-      console.log('Fehler beim Löschen:', e);
+      console.log('Fehler beim Loeschen:', e);
     }
 
     navigation.goBack();
   };
 
-  /* -----------------------------------------------------------
-     Abbrechen
-     ----------------------------------------------------------- */
+  /* Abbrechen */
   const handleCancel = () => {
     navigation.goBack();
   };
 
-  const isValidForm = !!name.trim();
+  const hasIntake =
+    intakeTimes.morning ||
+    intakeTimes.noon ||
+    intakeTimes.evening ||
+    intakeTimes.night;
+
+  const isValidForm = !!name.trim() && hasIntake;
 
   /* -----------------------------------------------------------
      UI
@@ -378,25 +376,18 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
           <ScrollView
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollContent}>
-            {/* ---------------------------------------------------
-                Logo oben
-               --------------------------------------------------- */}
+            {/* Logo oben */}
             <View style={styles.header}>
               <Image
-                source={require('../assets/logo.png')}
+                source={require('../assets/logo-icon.png')}
                 style={styles.headerLogo}
                 resizeMode="contain"
               />
             </View>
 
-            {/* ---------------------------------------------------
-                Formularbereich
-               --------------------------------------------------- */}
+            {/* Formularbereich fuer Medikament */}
             <View style={styles.form}>
-              {/* Titel (optional nutzbar) */}
-              {/* <Text style={styles.title}>{t.title}</Text> */}
-
-              {/* Name */}
+              {/* Name des Medikaments */}
               <Text style={styles.label}>{t.name}</Text>
               <TextInput
                 style={styles.input}
@@ -409,7 +400,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
                 <Text style={styles.errorText}>{nameError}</Text>
               ) : null}
 
-              {/* Permanent */}
+              {/* Permanent ja/nein */}
               <Text style={[styles.label, {marginTop: 16}]}>
                 {t.permanent}
               </Text>
@@ -450,12 +441,11 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
               </View>
 
               <View style={[styles.row, {marginTop: 4}]}>
-                {/* Spalte "von" */}
+                {/* Spalte «von»: immer heute setzen */}
                 <View style={styles.calendarColumn}>
                   <TouchableOpacity
                     style={styles.calendarButton}
                     onPress={() => {
-                      // von = immer heute setzen
                       setStartDate(formatDate(new Date()));
                     }}>
                     <Image
@@ -469,7 +459,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
                   ) : null}
                 </View>
 
-                {/* Spalte "bis" */}
+                {/* Spalte «bis»: DatePicker oeffnen */}
                 <View style={styles.calendarColumn}>
                   <TouchableOpacity
                     style={styles.calendarButton}
@@ -488,7 +478,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
                 </View>
               </View>
 
-              {/* DatePicker fuer "bis" */}
+              {/* DatePicker fuer «bis» */}
               {showEndPicker && (
                 <DateTimePicker
                   mode="date"
@@ -505,7 +495,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
                 />
               )}
 
-              {/* Einnahmezeiten */}
+              {/* Einnahmezeiten (Morgen/Mittag/Abend/Nacht) */}
               <Text style={[styles.label, {marginTop: 20}]}>
                 {t.intakeTimes}
               </Text>
@@ -560,7 +550,7 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
                 <Text style={styles.errorText}>{intakeError}</Text>
               ) : null}
 
-              {/* Foto */}
+              {/* Foto (optional) */}
               <Text style={[styles.label, {marginTop: 20}]}>
                 {t.photo}
               </Text>
@@ -613,13 +603,13 @@ const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Löschen Button nur im Bearbeiten Modus */}
+              {/* Loeschen Button nur im Bearbeiten Modus */}
               {editingMedicationId && (
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={handleDelete}>
                   <Text style={styles.deleteButtonText}>
-                    Medikament löschen
+                    Medikament loeschen
                   </Text>
                 </TouchableOpacity>
               )}
