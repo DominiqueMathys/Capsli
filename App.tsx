@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import MedicationFormScreen from './screens/screen_medi';
 import {SettingsProvider, useSettings} from './SettingsContext';
+import ClockScreen from './screens/screen_clock';
 
 /* -------------------------------------------------------------
    Basis Typen (Sprache, Einnahmezeiten, Medikamente)
@@ -55,6 +56,7 @@ type RootStackParamList = {
   Dashboard: undefined;
   Profile: undefined;
   MedicationForm: {medicationId?: string} | undefined;
+  Clock: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -680,10 +682,8 @@ const App: React.FC = () => {
           <Stack.Navigator screenOptions={{headerShown: false}}>
             <Stack.Screen name="Dashboard" component={DashboardEmptyScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen
-              name="MedicationForm"
-              component={MedicationFormScreen}
-            />
+            <Stack.Screen name="MedicationForm" component={MedicationFormScreen} />
+            <Stack.Screen name="Clock" component={ClockScreen} />
           </Stack.Navigator>
         </SafeAreaView>
       </NavigationContainer>
