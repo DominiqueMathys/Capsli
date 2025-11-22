@@ -331,7 +331,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({navigation}) => {
 
       {/* Untere Navigationsleiste */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Clock')}>
           <Image
             source={require('./assets/clock_icon.png')}
             style={styles.smallIconImage}
