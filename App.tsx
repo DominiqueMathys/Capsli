@@ -362,15 +362,16 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
 
       {/* Inhalt: entweder leerer Hinweis oder Liste mit Medikamenten */}
       <View style={styles.content}>
-        {medications.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>{t.noMeds}</Text>
-          </View>
-        ) : (
-          <ScrollView
-            contentContainerStyle={styles.medListContent}
-            showsVerticalScrollIndicator={false}>
-            {medications.map(m => (
+  {medications.length === 0 ? (
+    <View style={styles.emptyBox}>
+      <Text style={styles.emptyText}>{t.noMeds}</Text>
+    </View>
+  ) : (
+    // Liste mit Medikamenten
+    <ScrollView
+      contentContainerStyle={styles.medListContent}
+      showsVerticalScrollIndicator={false}>
+      {medications.map(m => (
               <View key={m.id} style={styles.medCard}>
                 {/* Linke Seite: Texte */}
                 <View style={styles.medTextArea}>
@@ -409,10 +410,8 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
 
                   <TouchableOpacity
                     style={styles.editButton}
-                    onPress={() =>
-                      navigation.navigate('MedicationForm')
-                    }>
-                    <Text style={styles.editButtonText}>{t.edit}</Text>
+                    onPress={() => navigation.navigate('MedicationForm', {medicationId: m.id})}>
+                    <Text style={styles.editButtonText}>Bearbeiten</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -833,76 +832,33 @@ const styles = StyleSheet.create({
     height: 60,
   },
 
-  /* Hauptinhalt Dashboard */
+  /* Hauptinhalt */
   content: {
     flex: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  /* Wenn keine Medikamente vorhanden sind */
+  /* Wrapper "keine Medikamente erfasst" */
+  emptyWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Box um den Text herum */
   emptyBox: {
-    alignSelf: 'center',
-    marginTop: 40,
     paddingVertical: 10,
     paddingHorizontal: 16,
     backgroundColor: '#e0e0e0',
     borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyText: {
     fontSize: 14,
     color: '#000000',
-  },
-
-  /* Liste der Medikamente */
-  medListContent: {
-    paddingBottom: 8,
-  },
-  medCard: {
-    flexDirection: 'row',
-    backgroundColor: '#e0e0e0',
-    padding: 8,
-    marginBottom: 8,
-  },
-  medTextArea: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  medName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  medDate: {
-    fontSize: 13,
-    marginBottom: 4,
-  },
-  medIntake: {
-    fontSize: 13,
-    marginBottom: 4,
-  },
-  medNote: {
-    fontSize: 12,
-  },
-  medRightArea: {
-    width: 90,
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  medPhoto: {
-    width: 80,
-    height: 80,
-    marginBottom: 4,
-  },
-  editButton: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#00b0aa',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  editButtonText: {
-    fontSize: 12,
-    color: '#ffffff',
   },
 
   /* Untere Leiste */
@@ -914,6 +870,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingHorizontal: 32,
   },
+
+  /* Grosser Plus Button */
   addButton: {
     width: 80,
     height: 80,
@@ -929,6 +887,8 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
   },
+
+  /* Icons (Uhr & Typ) in der Leiste */
   smallIconImage: {
     width: 46,
     height: 46,
@@ -938,7 +898,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
 
-  /* Profil Screen */
+  /* Capsli-User */
   profileContainer: {
     flex: 1,
     backgroundColor: '#0280BE',
@@ -971,7 +931,6 @@ const styles = StyleSheet.create({
   labelSmall: {
     color: '#ffffff',
     fontSize: 14,
-    marginLeft: 6,
   },
   input: {
     height: 36,
@@ -1006,6 +965,8 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
   },
+
+  /* Buttons Speichern / Abbrechen */
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1031,6 +992,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
   },
+
   profileFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1068,7 +1030,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  /* Modals allgemein */
+  /* Modals */
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
