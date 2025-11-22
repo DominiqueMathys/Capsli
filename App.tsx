@@ -54,14 +54,13 @@ const MEDS_STORAGE_KEY = '@capsli_medications';
 type RootStackParamList = {
   Dashboard: undefined;
   Profile: undefined;
-  // MedicationForm kann optional eine medicationId bekommen
   MedicationForm: {medicationId?: string} | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 /* -------------------------------------------------------------
-   Uebersetzungen fuer Dashboard / Profil
+   Übersetzungen für Dashboard / Profil
    ------------------------------------------------------------- */
 
 const translations: Record<
@@ -90,8 +89,6 @@ const translations: Record<
     infoClose: string;
     edit: string;
     fromToConnector: string;
-
-    // Labels fuer Einnahmezeiten im Dashboard
     morning: string;
     noon: string;
     evening: string;
@@ -106,7 +103,7 @@ const translations: Record<
     on: 'Ein',
     off: 'Aus',
     language: 'Sprache :',
-    choose: 'waehlen',
+    choose: 'wählen',
     infoDisclaimer: 'Info/Disclaimer',
     disclaimerText: '(Dies ist keine medizinische Beratung)',
     versionLabel: 'App-Version :',
@@ -114,7 +111,7 @@ const translations: Record<
     noMeds: 'keine Medikamente erfasst',
     save: 'Speichern',
     cancel: 'Abbrechen',
-    chooseLanguageTitle: 'Sprache waehlen',
+    chooseLanguageTitle: 'Sprache wählen',
     infoQuestion: 'Möchten Sie eine telefonische Beratung oder einen Chat?',
     infoPhone: 'Telefonberatung',
     infoChat: 'Chat',
@@ -144,8 +141,7 @@ const translations: Record<
     save: 'Enregistrer',
     cancel: 'Annuler',
     chooseLanguageTitle: 'Choisir la langue',
-    infoQuestion:
-      'Souhaitez-vous un conseil téléphonique ou un chat ?',
+    infoQuestion: 'Souhaitez-vous un conseil téléphonique ou un chat ?',
     infoPhone: 'Conseil téléphonique',
     infoChat: 'Chat',
     infoPhoneNumber: 'Téléphone : 044 235 65 41',
@@ -203,8 +199,7 @@ const translations: Record<
     save: 'Salva',
     cancel: 'Annulla',
     chooseLanguageTitle: 'Seleziona lingua',
-    infoQuestion:
-      'Desidera una consulenza telefonica o una chat?',
+    infoQuestion: 'Desidera una consulenza telefonica o una chat?',
     infoPhone: 'Consulenza telefonica',
     infoChat: 'Chat',
     infoPhoneNumber: 'Telefono: 044 235 65 41',
@@ -226,15 +221,12 @@ type DashboardProps = {
   navigation: any;
 };
 
-const DashboardEmptyScreen: React.FC<DashboardProps> = ({
-  navigation,
-}) => {
+const DashboardEmptyScreen: React.FC<DashboardProps> = ({navigation}) => {
   const {settings} = useSettings();
   const t = translations[settings.language];
 
   const [medications, setMedications] = useState<Medication[]>([]);
 
-  // Medikamente aus AsyncStorage laden, wenn das Dashboard im Fokus ist
   useFocusEffect(
     React.useCallback(() => {
       let active = true;
@@ -258,7 +250,6 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
     }, []),
   );
 
-  // Hilfsfunktion fuer Einnahmezeiten als Text
   const getIntakeText = (m: Medication) => {
     const parts: string[] = [];
     if (m.intakeTimes.morning) parts.push(t.morning);
@@ -279,48 +270,38 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
         />
       </View>
 
-      {/* Inhalt: entweder leerer Hinweis oder Liste mit Medikamenten */}
+      {/* Inhalt */}
       <View style={styles.content}>
         {medications.length === 0 ? (
-          // Leerzustand: Hinweis in einer Box
           <View style={styles.emptyWrapper}>
             <View style={styles.emptyBox}>
               <Text style={styles.emptyText}>{t.noMeds}</Text>
             </View>
           </View>
         ) : (
-          // Liste mit Medikamenten
           <ScrollView
             contentContainerStyle={styles.medListContent}
             showsVerticalScrollIndicator={false}>
             {medications.map(m => (
               <View key={m.id} style={styles.medCard}>
-                {/* Linke Seite: Texte (Name, Zeitraum, Einnahmezeiten, Notiz) */}
                 <View style={styles.medTextArea}>
                   <Text style={styles.medName}>{m.name}</Text>
 
                   {(m.startDate || m.endDate) && (
                     <Text style={styles.medDate}>
                       {m.startDate ?? ''}
-                      {m.startDate && m.endDate
-                        ? t.fromToConnector
-                        : ''}
+                      {m.startDate && m.endDate ? t.fromToConnector : ''}
                       {m.endDate ?? ''}
                     </Text>
                   )}
 
                   {getIntakeText(m) ? (
-                    <Text style={styles.medIntake}>
-                      {getIntakeText(m)}
-                    </Text>
+                    <Text style={styles.medIntake}>{getIntakeText(m)}</Text>
                   ) : null}
 
-                  {m.note ? (
-                    <Text style={styles.medNote}>{m.note}</Text>
-                  ) : null}
+                  {m.note ? <Text style={styles.medNote}>{m.note}</Text> : null}
                 </View>
 
-                {/* Rechte Seite: Bild + «Bearbeiten»-Button */}
                 <View style={styles.medRightArea}>
                   {m.photoUri ? (
                     <Image
@@ -337,9 +318,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
                         medicationId: m.id,
                       })
                     }>
-                    <Text style={styles.editButtonText}>
-                      {t.edit}
-                    </Text>
+                    <Text style={styles.editButtonText}>{t.edit}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -350,7 +329,6 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
 
       {/* Untere Navigationsleiste */}
       <View style={styles.bottomBar}>
-        {/* Uhr (Platzhalter fuer spaetere Funktion) */}
         <TouchableOpacity>
           <Image
             source={require('./assets/clock_icon.png')}
@@ -359,7 +337,6 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Grosser Plus Button -> neues Medikament erfassen */}
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('MedicationForm')}>
@@ -370,9 +347,7 @@ const DashboardEmptyScreen: React.FC<DashboardProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Profil-Icon */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
           <Image
             source={require('./assets/profil_icon.png')}
             style={styles.profileIcon}
@@ -396,21 +371,19 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
   const {settings, updateSettings} = useSettings();
   const t = translations[settings.language];
 
-  // Lokaler State fuer Formular (Name, Vorname, Notifications, Sprache)
   const [localName, setLocalName] = useState(settings.name);
-  const [localFirstName, setLocalFirstName] =
-    useState(settings.firstName);
-  const [localNotificationsEnabled, setLocalNotificationsEnabled] =
-    useState(settings.notificationsEnabled);
-  const [localLanguage, setLocalLanguage] =
-    useState<Language>(settings.language);
+  const [localFirstName, setLocalFirstName] = useState(settings.firstName);
+  const [localNotificationsEnabled, setLocalNotificationsEnabled] = useState(
+    settings.notificationsEnabled,
+  );
+  const [localLanguage, setLocalLanguage] = useState<Language>(
+    settings.language,
+  );
 
-  const [languageModalVisible, setLanguageModalVisible] =
-    useState(false);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [showPhoneNumber, setShowPhoneNumber] = useState(false);
 
-  // Wenn sich Settings aendern, Formularwerte aktualisieren
   useEffect(() => {
     setLocalName(settings.name);
     setLocalFirstName(settings.firstName);
@@ -458,97 +431,86 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
           style={styles.profileLogo}
           resizeMode="contain"
         />
-        <Text style={styles.profileTitle}>
-          {currentTranslations.capsliUser}
-        </Text>
+        <Text style={styles.profileTitle}>{currentTranslations.capsliUser}</Text>
       </View>
 
-      {/* Hauptinhalt Profilformular */}
+      {/* Profilformular */}
       <View style={styles.profileForm}>
-        {/* Name */}
-        <Text style={styles.label}>{currentTranslations.name}</Text>
-        <TextInput
-          style={styles.input}
-          value={localName}
-          onChangeText={setLocalName}
-          placeholder={currentTranslations.name.replace(':', '')}
-          placeholderTextColor="#888"
-        />
+        <View style={styles.profileFormInner}>
+          {/* Name (Label links, Feld rechts) */}
+          <View style={styles.inputRow}>
+            <Text style={styles.rowLabel}>{currentTranslations.name}</Text>
+            <TextInput
+              style={styles.input}
+              value={localName}
+              onChangeText={setLocalName}
+              placeholder={currentTranslations.name.replace(':', '')}
+              placeholderTextColor="#888"
+            />
+          </View>
 
-        {/* Vorname */}
-        <Text style={styles.label}>
-          {currentTranslations.firstName}
-        </Text>
-        <TextInput
-          style={styles.input}
-          value={localFirstName}
-          onChangeText={setLocalFirstName}
-          placeholder={currentTranslations.firstName.replace(
-            ':',
-            '',
-          )}
-          placeholderTextColor="#888"
-        />
+          {/* Vorname */}
+          <View style={styles.inputRow}>
+            <Text style={styles.rowLabel}>{currentTranslations.firstName}</Text>
+            <TextInput
+              style={styles.input}
+              value={localFirstName}
+              onChangeText={setLocalFirstName}
+              placeholder={currentTranslations.firstName.replace(':', '')}
+              placeholderTextColor="#888"
+            />
+          </View>
 
-        {/* Benachrichtigungen */}
-        <Text style={styles.label}>
-          {currentTranslations.notifications}
-        </Text>
-        <View style={styles.row}>
-          <Text style={styles.labelSmall}>
-            {currentTranslations.on}
+          {/* Benachrichtigungen */}
+          <Text style={styles.fullLabel}>
+            {currentTranslations.notifications}
           </Text>
-          <TouchableOpacity
-            style={[
-              styles.checkbox,
-              localNotificationsEnabled && styles.checkboxActive,
-            ]}
-            onPress={() => setLocalNotificationsEnabled(true)}
-          />
-          <Text style={[styles.labelSmall, {marginLeft: 24}]}>
-            {currentTranslations.off}
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.checkbox,
-              !localNotificationsEnabled && styles.checkboxActive,
-            ]}
-            onPress={() => setLocalNotificationsEnabled(false)}
-          />
-        </View>
-
-        {/* Sprache */}
-        <Text style={styles.label}>
-          {currentTranslations.language}
-        </Text>
-        <TouchableOpacity
-          style={styles.languageButton}
-          onPress={() => setLanguageModalVisible(true)}>
-          <Text style={styles.languageButtonText}>
-            {languageLabel}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Buttons Speichern / Abbrechen */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={handleSave}>
-            <Text style={styles.buttonText}>
-              {currentTranslations.save}
+          <View style={styles.row}>
+            <Text style={styles.labelSmall}>{currentTranslations.on}</Text>
+            <TouchableOpacity
+              style={[
+                styles.checkbox,
+                localNotificationsEnabled && styles.checkboxActive,
+              ]}
+              onPress={() => setLocalNotificationsEnabled(true)}
+            />
+            <Text style={[styles.labelSmall, {marginLeft: 24}]}>
+              {currentTranslations.off}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleCancel}>
-            <Text style={styles.buttonText}>
-              {currentTranslations.cancel}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.checkbox,
+                !localNotificationsEnabled && styles.checkboxActive,
+              ]}
+              onPress={() => setLocalNotificationsEnabled(false)}
+            />
+          </View>
+
+          {/* Sprache (Label links, Button rechts) */}
+          <View style={styles.inputRow}>
+            <Text style={styles.rowLabel}>{currentTranslations.language}</Text>
+            <TouchableOpacity
+              style={styles.languageButton}
+              onPress={() => setLanguageModalVisible(true)}>
+              <Text style={styles.languageButtonText}>{languageLabel}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Buttons Speichern / Abbrechen */}
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
+              <Text style={styles.buttonText}>{currentTranslations.save}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleCancel}>
+              <Text style={styles.buttonText}>{currentTranslations.cancel}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      {/* Info / Disclaimer unten */}
+      {/* Info / Disclaimer */}
       <View style={styles.profileFooter}>
         <View>
           <Text style={styles.infoTitle}>
@@ -572,11 +534,10 @@ const ProfileScreen: React.FC<ProfileProps> = ({navigation}) => {
 
       {/* App-Version */}
       <Text style={styles.versionText}>
-        {currentTranslations.versionLabel}{' '}
-        {currentTranslations.version}
+        {currentTranslations.versionLabel} {currentTranslations.version}
       </Text>
 
-      {/* Modal: Sprache waehlen */}
+      {/* Modal: Sprache wählen */}
       <Modal
         transparent
         visible={languageModalVisible}
@@ -714,18 +675,11 @@ const App: React.FC = () => {
   return (
     <SettingsProvider>
       <NavigationContainer>
-        <SafeAreaView
-          style={{flex: 1, backgroundColor: '#ffffff'}}>
+        <SafeAreaView style={{flex: 1, backgroundColor: '#ffffff'}}>
           <StatusBar barStyle="light-content" />
           <Stack.Navigator screenOptions={{headerShown: false}}>
-            <Stack.Screen
-              name="Dashboard"
-              component={DashboardEmptyScreen}
-            />
-            <Stack.Screen
-              name="Profile"
-              component={ProfileScreen}
-            />
+            <Stack.Screen name="Dashboard" component={DashboardEmptyScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen
               name="MedicationForm"
               component={MedicationFormScreen}
@@ -747,13 +701,11 @@ const HEADER_HEIGHT = 80;
 const BOTTOM_NAV_HEIGHT = 80;
 
 const styles = StyleSheet.create({
-  /* Allgemein Dashboard */
+  /* Dashboard */
   container: {
     flex: 1,
     backgroundColor: '#f6f6f6',
   },
-
-  /* Header mit Logo */
   header: {
     height: HEADER_HEIGHT,
     backgroundColor: '#0280BE',
@@ -764,23 +716,17 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
   },
-
-  /* Hauptinhalt */
   content: {
     flex: 1,
     paddingHorizontal: 16,
     alignItems: 'stretch',
     justifyContent: 'flex-start',
   },
-
-  /* Leerzustand-Wrapper */
   emptyWrapper: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  /* Box um den Text «keine Medikamente erfasst» */
   emptyBox: {
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -793,8 +739,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000000',
   },
-
-  /* Liste der Medikamente */
   medListContent: {
     paddingVertical: 16,
     paddingBottom: 24,
@@ -836,8 +780,6 @@ const styles = StyleSheet.create({
     color: '#555555',
     marginTop: 4,
   },
-
-  /* Rechte Seite der Medikament-Karte */
   medRightArea: {
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -859,8 +801,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0280BE',
   },
-
-  /* Untere Navigationsleiste */
   bottomBar: {
     height: BOTTOM_NAV_HEIGHT,
     backgroundColor: '#0280BE',
@@ -869,8 +809,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingHorizontal: 32,
   },
-
-  /* Grosser Plus Button */
   addButton: {
     width: 80,
     height: 80,
@@ -886,8 +824,6 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
   },
-
-  /* Icons (Uhr & Profil) in der Leiste */
   smallIconImage: {
     width: 46,
     height: 46,
@@ -901,8 +837,8 @@ const styles = StyleSheet.create({
   profileContainer: {
     flex: 1,
     backgroundColor: '#0280BE',
-    paddingHorizontal: 24,
     paddingTop: 16,
+    paddingHorizontal: 0,
   },
   profileHeader: {
     alignItems: 'center',
@@ -920,11 +856,28 @@ const styles = StyleSheet.create({
   },
   profileForm: {
     flexGrow: 1,
+    alignItems: 'center',
   },
-  label: {
+  profileFormInner: {
+    width: 300, // schmale Spalte wie im Mockup
+  },
+
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 50,
+  },
+  rowLabel: {
     color: '#ffffff',
     fontSize: 16,
-    marginTop: 12,
+    width: 90,
+    marginRight: 8,
+  },
+  fullLabel: {
+    color: '#ffffff',
+    fontSize: 16,
+    marginTop: 60,
     marginBottom: 4,
   },
   labelSmall: {
@@ -937,6 +890,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f2f2f2',
     borderRadius: 4,
     paddingHorizontal: 8,
+    flex: 1,
   },
   row: {
     flexDirection: 'row',
@@ -954,37 +908,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   languageButton: {
-    marginTop: 4,
-    alignSelf: 'flex-start',
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 4,
+    minWidth: 100,
+    alignItems: 'center',
   },
   languageButtonText: {
     color: '#000000',
     fontSize: 14,
   },
-
-  /* Buttons Speichern / Abbrechen */
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
+    marginTop: 65,
   },
   primaryButton: {
-    flex: 1,
+    width: 100,
     backgroundColor: '#ffffff',
-    paddingVertical: 8,
-    marginRight: 8,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButton: {
-    flex: 1,
+    width: 100,
     backgroundColor: '#ffffff',
-    paddingVertical: 8,
-    marginLeft: 8,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -998,6 +948,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 32,
+    paddingHorizontal: 24,
   },
   infoTitle: {
     color: '#ffffff',
