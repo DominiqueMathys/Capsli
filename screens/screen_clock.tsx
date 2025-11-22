@@ -4,7 +4,7 @@
  * Zeitplan-Screen:
  * - zeigt alle Medikamente als Timeline über den Tag
  * - Zuordnung IntakeTimes -> Uhrzeiten (08:00, 12:00, 18:00, 22:00)
- * - Button pro Medikament: "einnehmen" <-> "genommen" (umschaltbar)
+ * - Button pro Medikament: "einnehmen" <-> "genommen" (umschaltbar, PERSISTENT)
  * - oben: Header mit Zurück-Pfeil, Logo und Titel
  * - unten: gleiche Bottom-Bar wie im Dashboard (Uhr, Plus, Profil)
  */
@@ -22,10 +22,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // gleicher Storage-Key wie im Rest der App
 const MEDS_STORAGE_KEY = '@capsli_medications';
+// NEU: eigener Key für den «genommen»-Status
+const TAKEN_MAP_STORAGE_KEY = '@capsli_taken_map';
 
-/**
- * Typen wie in Ihrer Hauptdatei
- */
 type IntakeTimes = {
   morning: boolean;
   noon: boolean;
@@ -44,12 +43,6 @@ type Medication = {
   photoUri?: string | null;
 };
 
-/**
- * Ein Eintrag in der Timeline:
- * - time: Uhrzeit (z. B. "08:00")
- * - label: Text wie "Morgen", "Mittag" usw.
- * - med: das eigentliche Medikament
- */
 type ClockEvent = {
   time: string;
   label: string;
@@ -62,7 +55,6 @@ type ClockScreenProps = {
 
 /**
  * Zuordnung IntakeTimes -> Uhrzeiten und Labels
- * Diese Definition bestimmt, welche Tageszeit zu welcher Uhrzeit gehört.
  */
 const TIME_MAPPING = [
   {field: 'morning', time: '08:00', label: 'Morgen'},
@@ -72,24 +64,26 @@ const TIME_MAPPING = [
 ];
 
 const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
-  // Alle Events (Medikament + Uhrzeit) in der Timeline
   const [events, setEvents] = useState<ClockEvent[]>([]);
   /**
-   * Merkt sich, ob eine Einnahme schon als "genommen" markiert ist.
+   * Merkt sich, ob eine Einnahme schon als «genommen» markiert ist.
    * Key: Kombination aus Medikamenten-ID und Uhrzeit, z. B. "abc123-08:00".
    * Wert: true = genommen, false/undefined = noch einzunehmen.
    */
   const [takenMap, setTakenMap] = useState<Record<string, boolean>>({});
 
   /**
-   * Beim ersten Laden alle Medikamente holen und Events erzeugen.
+   * Beim Mount:
+   * - Medikamente laden und in Events umwandeln
+   * - gespeicherten «genommen»-Status laden
    */
   useEffect(() => {
     loadMedications();
+    loadTakenMap();
   }, []);
 
   /**
-   * Lädt Medikamente aus AsyncStorage und baut daraus Timeline-Events.
+   * Medikamente aus AsyncStorage holen und Timeline-Events bauen.
    */
   const loadMedications = async () => {
     try {
@@ -99,7 +93,6 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
       const allEvents: ClockEvent[] = [];
 
       meds.forEach(med => {
-        // Für jede IntakeTime prüfen, ob sie aktiv ist
         TIME_MAPPING.forEach(slot => {
           if (med.intakeTimes[slot.field as keyof IntakeTimes]) {
             allEvents.push({
@@ -111,7 +104,6 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
         });
       });
 
-      // Events nach Uhrzeit sortieren
       const sortedEvents = allEvents.sort((a, b) =>
         a.time.localeCompare(b.time),
       );
@@ -123,15 +115,44 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
   };
 
   /**
-   * Klick auf "einnehmen" / "genommen":
+   * Gespeicherte «genommen»-Map laden
+   */
+  const loadTakenMap = async () => {
+    try {
+      const json = await AsyncStorage.getItem(TAKEN_MAP_STORAGE_KEY);
+      const map: Record<string, boolean> = json ? JSON.parse(json) : {};
+      setTakenMap(map);
+    } catch (e) {
+      console.log('Fehler beim Laden von takenMap', e);
+    }
+  };
+
+  /**
+   * Helper: updated Map in AsyncStorage speichern
+   */
+  const saveTakenMap = async (map: Record<string, boolean>) => {
+    try {
+      await AsyncStorage.setItem(TAKEN_MAP_STORAGE_KEY, JSON.stringify(map));
+    } catch (e) {
+      console.log('Fehler beim Speichern von takenMap', e);
+    }
+  };
+
+  /**
+   * Klick auf «einnehmen» / «genommen»:
    * - toggelt den Status in takenMap
-   * - derselbe Button kann also auch wieder rückgängig gemacht werden.
+   * - speichert die neue Map in AsyncStorage (damit es bleibt)
    */
   const toggleTaken = (key: string) => {
-    setTakenMap(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setTakenMap(prev => {
+      const updated = {
+        ...prev,
+        [key]: !prev[key],
+      };
+      // persistent speichern
+      saveTakenMap(updated);
+      return updated;
+    });
   };
 
   return (
@@ -140,12 +161,10 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
          Header mit Zurück-Pfeil, Logo und Titel
          -------------------------------------------------- */}
       <View style={styles.header}>
-        {/* einfacher Text-Pfeil als Zurück-Button */}
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>{'‹'}</Text>
         </TouchableOpacity>
 
-        {/* Mitte: Logo + Titel "Zeitplan" */}
         <View style={styles.headerCenter}>
           <Image
             source={require('../assets/logo-icon.png')}
@@ -155,7 +174,6 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
           <Text style={styles.headerTitle}>Zeitplan</Text>
         </View>
 
-        {/* Platzhalter rechts, damit Inhalt in der Mitte wirklich zentriert ist */}
         <View style={{width: 32}} />
       </View>
 
@@ -166,12 +184,10 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollInner}>
-        {/* Durchgehender blauer Strich als Timeline-Hintergrund.
-           Wichtig: position:absolute, damit er hinter allen Punkten liegt. */}
+        {/* durchgehender blauer Strich als Timeline-Hintergrund */}
         <View style={styles.verticalLine} />
 
         {TIME_MAPPING.map(slot => {
-          // alle Events für diese Uhrzeit (z. B. alle Medikamente um 08:00)
           const slotEvents = events.filter(e => e.time === slot.time);
 
           return (
@@ -179,14 +195,12 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
               {/* Uhrzeit links */}
               <Text style={styles.timeText}>{slot.time}</Text>
 
-              {/* Kleine Timeline-Kugel auf dem blauen Strich */}
+              {/* Timeline-Kugel auf dem Strich */}
               <View style={styles.timelineColumn}>
-                {/* HIER können Sie die Kugel optisch ändern:
-                   - Grösse, Farbe, Rand etc. in styles.dot */}
                 <View style={styles.dot} />
               </View>
 
-              {/* Rechte Seite: Karten mit Medikamenten (oder "Keine Einnahme") */}
+              {/* rechte Seite: Karten oder «Keine Einnahme» */}
               <View style={styles.rightContainer}>
                 {slotEvents.length === 0 ? (
                   <Text style={styles.noMedsText}>Keine Einnahme</Text>
@@ -200,7 +214,6 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
                         <Text style={styles.medName}>{e.med.name}</Text>
                         <Text style={styles.medLabel}>{slot.label}</Text>
 
-                        {/* Button: einnehmen <-> genommen */}
                         <TouchableOpacity
                           style={[
                             styles.takeButton,
@@ -226,10 +239,9 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
       </ScrollView>
 
       {/* --------------------------------------------------
-         Untere Navigationsleiste (wie in Ihrem Dashboard)
+         Untere Navigationsleiste
          -------------------------------------------------- */}
       <View style={styles.bottomBar}>
-        {/* Uhr-Icon: bleibt auf dem Zeitplan-Screen */}
         <TouchableOpacity onPress={() => navigation.navigate('Clock')}>
           <Image
             source={require('../assets/clock_icon.png')}
@@ -238,7 +250,6 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
           />
         </TouchableOpacity>
 
-        {/* Plus-Button: neues Medikament erfassen */}
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('MedicationForm')}>
@@ -249,7 +260,6 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
           />
         </TouchableOpacity>
 
-        {/* Profil-Icon */}
         <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
           <Image
             source={require('../assets/profil_icon.png')}
@@ -265,7 +275,7 @@ const ClockScreen: React.FC<ClockScreenProps> = ({navigation}) => {
 export default ClockScreen;
 
 /* -----------------------------------------------------------
-   STYLES – hier können Sie das Aussehen anpassen
+   STYLES
    ----------------------------------------------------------- */
 
 const styles = StyleSheet.create({
@@ -311,17 +321,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 120,
-    position: 'relative', // wichtig für verticalLine (absolute)
+    position: 'relative',
   },
 
-  /**
-   * DURCHGEHENDER TIMELINE-STRICH
-   * - wenn Sie ihn verschieben möchten, ändern Sie "left"
-   * - wenn er dicker/dünner sein soll, ändern Sie "width"
-   */
+  /* durchgehende Timeline-Linie im Hintergrund */
   verticalLine: {
     position: 'absolute',
-    left: 70, // horizontale Position der Linie (zwischen Zeit und Karten)
+    left: 70,
     top: 0,
     bottom: 0,
     width: 3,
@@ -341,21 +347,13 @@ const styles = StyleSheet.create({
     color: '#444444',
   },
 
-  /* Spalte für die Timeline-Kugel */
   timelineColumn: {
     width: 11,
     alignItems: 'center',
     marginRight: 20,
   },
 
-  /**
-   * TIMELINE-KUGEL
-   *
-   * → HIER können Sie die Kugel optisch verändern:
-   *   - width / height: Grösse
-   *   - borderRadius: Rundheit (Hälfte von width/height = Kreis)
-   *   - backgroundColor: Farbe
-   */
+  /* Timeline-Kugel – Position/Grösse/Farbe können Sie hier anpassen */
   dot: {
     width: 14,
     height: 14,
@@ -396,7 +394,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  /* Button "einnehmen" / "genommen" */
+  /* Button «einnehmen» / «genommen» */
   takeButton: {
     alignSelf: 'flex-start',
     paddingVertical: 6,
@@ -417,7 +415,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  /* Bottom-Bar wie im Dashboard */
+  /* Bottom-Bar */
   bottomBar: {
     height: 90,
     backgroundColor: '#0280BE',
