@@ -13,12 +13,9 @@ import {
   Keyboard,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
-import * as ImagePicker from 'expo-image-picker';
-
 import {useSettings} from '../SettingsContext';
+import * as ImagePicker from 'expo-image-picker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
 /* -------------------------------------------------------------
    Typen
@@ -94,7 +91,7 @@ const medTranslations: Record<
     save: 'Speichern',
     cancel: 'Abbrechen',
     nameRequired: 'Name ist erforderlich',
-    intakeRequired: 'Mindestens eine Einnahmezeit waehlen',
+    intakeRequired: 'Mindestens eine Einnahmezeit wählen',
   },
   fr: {
     title: 'Enregistrer un médicament',
@@ -159,38 +156,38 @@ const medTranslations: Record<
 };
 
 /* -------------------------------------------------------------
-   Hilfsfunktion: Datum formatieren (dd.mm.yyyy)
+   Datum formatieren (z. B. 22 Nov 2025)
    ------------------------------------------------------------- */
 const formatDate = (date: Date) => {
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const y = date.getFullYear();
-  return `${d}.${m}.${y}`;
+  return date.toLocaleDateString('de-CH', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 };
 
 /* -------------------------------------------------------------
-   Screen: Neu erfassen ODER bearbeiten
+   Screen: neu erfassen oder bearbeiten
    ------------------------------------------------------------- */
-const MedicationFormScreen: React.FC<Props> = ({
-  navigation,
-  route,
-}) => {
+const MedicationFormScreen: React.FC<Props> = ({navigation, route}) => {
   const {settings} = useSettings();
   const t = medTranslations[settings.language as Language];
 
-  // Ist es Bearbeiten? -> id kommt ueber route.params.medicationId
   const editingMedicationId = route?.params?.medicationId as
     | string
     | undefined;
 
-  /* Lokale States des Formulars */
+  /* -----------------------------------------------------------
+     Lokale States
+     ----------------------------------------------------------- */
   const [name, setName] = useState('');
   const [permanent, setPermanent] = useState<boolean | null>(null);
 
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
 
-  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [isStartPickerVisible, setStartPickerVisible] = useState(false);
+  const [isEndPickerVisible, setEndPickerVisible] = useState(false);
 
   const [intakeTimes, setIntakeTimes] = useState<IntakeTimes>({
     morning: false,
@@ -206,15 +203,11 @@ const MedicationFormScreen: React.FC<Props> = ({
   const [intakeError, setIntakeError] = useState('');
 
   /* -----------------------------------------------------------
-     Beim Start:
-       - wenn neu -> Startdatum heute
-       - wenn Bearbeiten -> Daten aus Storage laden
+     Init
      ----------------------------------------------------------- */
   useEffect(() => {
     const init = async () => {
       if (!editingMedicationId) {
-        // neuer Eintrag: Startdatum = heute
-        setStartDate(formatDate(new Date()));
         return;
       }
 
@@ -240,12 +233,16 @@ const MedicationFormScreen: React.FC<Props> = ({
     init();
   }, [editingMedicationId]);
 
-  /* Einnahmezeiten umschalten */
+  /* -----------------------------------------------------------
+     Einnahmezeiten umschalten
+     ----------------------------------------------------------- */
   const toggleIntake = (key: keyof IntakeTimes) => {
     setIntakeTimes(prev => ({...prev, [key]: !prev[key]}));
   };
 
-  /* Formular pruefen */
+  /* -----------------------------------------------------------
+     Formular prüfen
+     ----------------------------------------------------------- */
   const validate = () => {
     let ok = true;
 
@@ -272,12 +269,14 @@ const MedicationFormScreen: React.FC<Props> = ({
     return ok;
   };
 
-  /* Bild aus Bibliothek waehlen */
+  /* -----------------------------------------------------------
+     Bild aus Bibliothek wählen
+     ----------------------------------------------------------- */
   const pickImage = async () => {
     const {status} =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      alert('Zugriff auf die Fotobibliothek ist noetig.');
+      alert('Zugriff auf die Fotobibliothek ist nötig.');
       return;
     }
 
@@ -291,7 +290,35 @@ const MedicationFormScreen: React.FC<Props> = ({
     }
   };
 
-  /* Speichern (neu oder Bearbeiten) */
+  /* -----------------------------------------------------------
+     DatePicker-Handler
+     ----------------------------------------------------------- */
+  const openStartPicker = () => {
+    setStartPickerVisible(true);
+  };
+
+  const openEndPicker = () => {
+    setEndPickerVisible(true);
+  };
+
+  const handleStartConfirm = (date: Date) => {
+    setStartDate(formatDate(date));
+    setStartPickerVisible(false);
+  };
+
+  const handleEndConfirm = (date: Date) => {
+    setEndDate(formatDate(date));
+    setEndPickerVisible(false);
+  };
+
+  const handleDateCancel = () => {
+    setStartPickerVisible(false);
+    setEndPickerVisible(false);
+  };
+
+  /* -----------------------------------------------------------
+     Speichern
+     ----------------------------------------------------------- */
   const handleSave = async () => {
     if (!validate()) return;
 
@@ -311,12 +338,10 @@ const MedicationFormScreen: React.FC<Props> = ({
       let list: Medication[] = existing ? JSON.parse(existing) : [];
 
       if (editingMedicationId) {
-        // Bearbeiten: Eintrag ersetzen
         list = list.map(m =>
           m.id === editingMedicationId ? newMedication : m,
         );
       } else {
-        // Neu: anhaengen
         list.push(newMedication);
       }
 
@@ -331,7 +356,9 @@ const MedicationFormScreen: React.FC<Props> = ({
     navigation.goBack();
   };
 
-  /* Loeschen (nur im Bearbeiten Modus sichtbar) */
+  /* -----------------------------------------------------------
+     Löschen
+     ----------------------------------------------------------- */
   const handleDelete = async () => {
     if (!editingMedicationId) {
       navigation.goBack();
@@ -347,13 +374,12 @@ const MedicationFormScreen: React.FC<Props> = ({
         JSON.stringify(filtered),
       );
     } catch (e) {
-      console.log('Fehler beim Loeschen:', e);
+      console.log('Fehler beim Löschen:', e);
     }
 
     navigation.goBack();
   };
 
-  /* Abbrechen */
   const handleCancel = () => {
     navigation.goBack();
   };
@@ -379,15 +405,15 @@ const MedicationFormScreen: React.FC<Props> = ({
             {/* Logo oben */}
             <View style={styles.header}>
               <Image
-                source={require('../assets/logo-icon.png')}
+                source={require('../assets/logo.png')}
                 style={styles.headerLogo}
                 resizeMode="contain"
               />
             </View>
 
-            {/* Formularbereich fuer Medikament */}
+            {/* Formularbereich */}
             <View style={styles.form}>
-              {/* Name des Medikaments */}
+              {/* Name */}
               <Text style={styles.label}>{t.name}</Text>
               <TextInput
                 style={styles.input}
@@ -400,7 +426,7 @@ const MedicationFormScreen: React.FC<Props> = ({
                 <Text style={styles.errorText}>{nameError}</Text>
               ) : null}
 
-              {/* Permanent ja/nein */}
+              {/* Permanent */}
               <Text style={[styles.label, {marginTop: 16}]}>
                 {t.permanent}
               </Text>
@@ -426,76 +452,77 @@ const MedicationFormScreen: React.FC<Props> = ({
                 <Text style={styles.labelSmall}>{t.no}</Text>
               </View>
 
-              {/* Datum: von / bis */}
-              <View style={[styles.row, {marginTop: 20}]}>
-                <Text style={[styles.labelSmall, {flex: 1}]}>
-                  {t.from}
-                </Text>
-                <Text
-                  style={[
-                    styles.labelSmall,
-                    {flex: 1, textAlign: 'right'},
-                  ]}>
-                  {t.to}
-                </Text>
-              </View>
+              {/* Datum: von / bis mit Icon oben und Datum darunter */}
+              <View style={styles.dateRow}>
+                {/* von */}
+                <View style={styles.dateColumn}>
+                  <Text style={styles.dateLabel}>{t.from}</Text>
 
-              <View style={[styles.row, {marginTop: 4}]}>
-                {/* Spalte «von»: immer heute setzen */}
-                <View style={styles.calendarColumn}>
-                  <TouchableOpacity
-                    style={styles.calendarButton}
-                    onPress={() => {
-                      setStartDate(formatDate(new Date()));
-                    }}>
+                  <TouchableOpacity onPress={openStartPicker}>
                     <Image
                       source={require('../assets/calendar_icon.png')}
-                      style={styles.calendarIcon}
+                      style={styles.dateIcon}
                       resizeMode="contain"
                     />
                   </TouchableOpacity>
-                  {startDate ? (
-                    <Text style={styles.dateText}>{startDate}</Text>
-                  ) : null}
+
+                  {startDate && (
+                    <Text style={styles.dateValue}>{startDate}</Text>
+                  )}
                 </View>
 
-                {/* Spalte «bis»: DatePicker oeffnen */}
-                <View style={styles.calendarColumn}>
-                  <TouchableOpacity
-                    style={styles.calendarButton}
-                    onPress={() => setShowEndPicker(true)}>
-                    {endDate ? (
-                      // Wenn Datum gewaehlt -> Icon verschwindet, nur Datum
-                      <Text style={styles.dateText}>{endDate}</Text>
-                    ) : (
-                      <Image
-                        source={require('../assets/calendar_icon.png')}
-                        style={styles.calendarIcon}
-                        resizeMode="contain"
-                      />
-                    )}
+                {/* bis */}
+                <View style={styles.dateColumn}>
+                  <Text
+                    style={[styles.dateLabel, {textAlign: 'right'}]}>
+                    {t.to}
+                  </Text>
+
+                  <TouchableOpacity onPress={openEndPicker}>
+                    <Image
+                      source={require('../assets/calendar_icon.png')}
+                      style={styles.dateIcon}
+                      resizeMode="contain"
+                    />
                   </TouchableOpacity>
+
+                  {endDate && (
+                    <Text
+                      style={[
+                        styles.dateValue,
+                        {textAlign: 'right'},
+                      ]}>
+                      {endDate}
+                    </Text>
+                  )}
                 </View>
               </View>
 
-              {/* DatePicker fuer «bis» */}
-              {showEndPicker && (
-                <DateTimePicker
-                  mode="date"
-                  value={new Date()}
-                  onChange={(
-                    e: DateTimePickerEvent,
-                    date?: Date,
-                  ) => {
-                    setShowEndPicker(false);
-                    if (date) {
-                      setEndDate(formatDate(date));
-                    }
-                  }}
-                />
-              )}
+              {/* Modal DatePicker «von» */}
+              <DateTimePickerModal
+                isVisible={isStartPickerVisible}
+                mode="date"
+                display="spinner"
+                locale="de-CH"
+                themeVariant="light"
+                isDarkModeEnabled={false}
+                onConfirm={handleStartConfirm}
+                onCancel={handleDateCancel}
+              />
 
-              {/* Einnahmezeiten (Morgen/Mittag/Abend/Nacht) */}
+              {/* Modal DatePicker «bis» */}
+              <DateTimePickerModal
+                isVisible={isEndPickerVisible}
+                mode="date"
+                display="spinner"
+                locale="de-CH"
+                themeVariant="light"
+                isDarkModeEnabled={false}
+                onConfirm={handleEndConfirm}
+                onCancel={handleDateCancel}
+              />
+
+              {/* Einnahmezeiten */}
               <Text style={[styles.label, {marginTop: 20}]}>
                 {t.intakeTimes}
               </Text>
@@ -550,7 +577,7 @@ const MedicationFormScreen: React.FC<Props> = ({
                 <Text style={styles.errorText}>{intakeError}</Text>
               ) : null}
 
-              {/* Foto (optional) */}
+              {/* Foto */}
               <Text style={[styles.label, {marginTop: 20}]}>
                 {t.photo}
               </Text>
@@ -603,13 +630,13 @@ const MedicationFormScreen: React.FC<Props> = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Loeschen Button nur im Bearbeiten Modus */}
+              {/* Löschen Button nur im Bearbeiten Modus */}
               {editingMedicationId && (
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={handleDelete}>
                   <Text style={styles.deleteButtonText}>
-                    Medikament loeschen
+                    Medikament löschen
                   </Text>
                 </TouchableOpacity>
               )}
@@ -687,23 +714,32 @@ const styles = StyleSheet.create({
   checkboxActive: {
     backgroundColor: '#ffffff',
   },
-  calendarColumn: {
+
+  /* Datum-Bereich */
+  dateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  dateColumn: {
     flex: 1,
     alignItems: 'center',
   },
-  calendarButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calendarIcon: {
-    width: 40,
-    height: 40,
-  },
-  dateText: {
+  dateLabel: {
     color: '#ffffff',
-    fontSize: 16,
-    marginTop: 4,
+    fontSize: 14,
+    marginBottom: 4,
   },
+  dateIcon: {
+    width: 32,
+    height: 32,
+  },
+  dateValue: {
+    marginTop: 6,
+    color: '#ffffff',
+    fontSize: 14,
+  },
+
   photoBox: {
     width: 70,
     height: 70,
@@ -721,6 +757,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
