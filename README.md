@@ -75,4 +75,6 @@ Dieses Projekt wurde vollständig alleine entwickelt.
 Verantwortlich: Ich
 Bereiche: Architektur, UI/UX, Navigation, State-Management, Timeline-Logik, Formularvalidierung, Lokalisierung, Persistenz, Testing, Dokumentation
 
-
+## kurzes Screen-Video
+Zeigt die Laufähigkeit der App und die eingebundenen Aktion an.
+Ist zu finden im Ordner "kurzes Screen-Video".
