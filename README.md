@@ -3,7 +3,7 @@
 «Capsli» ist eine mobile App, mit der Sie Medikamente übersichtlich verwalten können. Die App entstand als Semesterprojekt und bietet eine einfache Verwaltung von Einnahmezeiten, Dauer, Notizen und optionalen Fotos. Zusätzlich unterstützt ein Tageszeitplan die Übersicht während des Tages.
 
 ## Setup
-###Voraussetzungen
+### Voraussetzungen
 - Node.js (LTS-Version)
 - npm oder yarn
 - Expo CLI oder Expo Go App
