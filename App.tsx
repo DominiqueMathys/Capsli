@@ -1,3 +1,40 @@
+/**
+ * app.tsx
+ *
+ * Einstiegspunkt der App mit Navigation und zentralen Screens:
+ * - kapselt die gesamte App im «SettingsProvider», damit Profil- und
+ *   Spracheinstellungen global verfügbar sind
+ * - richtet die Stack-Navigation mit den Screens «Dashboard», «Profile»,
+ *   «MedicationForm» und «Clock» ein
+ *
+ * Dashboard:
+ * - liest alle Medikamente aus AsyncStorage («@capsli_medications»)
+ * - zeigt eine Liste mit Name, Zeitraum, Einnahmezeiten und Notiz
+ * - erlaubt das Bearbeiten eines Medikaments über den «Bearbeiten»-Button
+ * - zeigt einen klaren Leerscreen, wenn noch keine Medikamente erfasst sind
+ *
+ * Profil:
+ * - verwaltet Profilangaben (Name, Vorname), Sprache und Benachrichtigungen
+ * - nutzt den SettingsContext, um Werte zu laden und zu aktualisieren
+ * - bietet eine Sprachwahl (de/fr/en/it) über ein Modal
+ * - zeigt Info/Disclaimer-Bereich mit zusätzlichem Info-Modal (Telefon oder Chat)
+ * - speichert Änderungen zentral über «updateSettings» und kehrt danach zurück
+ *
+ * Navigation und Layout:
+ * - Stack-Navigation ohne Header, gesteuert über «NavigationContainer»
+ * - untere Bottom-Bar im Dashboard mit Navigation zu:
+ *   - Zeitplan-Screen («Clock»)
+ *   - Medikamenten-Formular («MedicationForm»)
+ *   - Profil-Screen («Profile»)
+ * - einheitliches Capsli-Branding mit Logo, Farben und Versionstext
+ *
+ * Internationalisierung:
+ * - statische Texte für Dashboard und Profil kommen aus einem
+ *   «translations»-Objekt für de/fr/en/it
+ * - Labels für Einnahmezeiten (Morgen, Mittag, Abend, Nacht) werden
+ *   entsprechend der gewählten Sprache angezeigt
+ */
+
 import React, {useEffect, useState} from 'react';
 import {
   SafeAreaView,

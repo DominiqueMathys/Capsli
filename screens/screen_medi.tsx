@@ -1,3 +1,39 @@
+/**
+ * medication_form.tsx
+ *
+ * Screen zum Erfassen und Bearbeiten von Medikamenten:
+ * - wird je nach Route entweder im «Neu anlegen»- oder im «Bearbeiten»-Modus angezeigt
+ *   (erkennbar an route.params.medicationId)
+ * - liest und speichert Medikamente im AsyncStorage unter dem Key «@capsli_medications»
+ *
+ * Formularinhalt:
+ * - Textfeld für den Namen des Medikaments
+ * - Auswahl «Permanent: Ja/Nein»
+ * - Datumsbereich «von» / «bis» über DateTimePickerModal
+ * - Einnahmezeiten als Checkboxen: Morgen, Mittag, Abend, Nacht
+ * - optionales Foto (Auswahl aus der Fotobibliothek via expo-image-picker)
+ * - freie Notiz als mehrzeiliges Textfeld
+ *
+ * Validierung:
+ * - Name darf nicht leer sein
+ * - es muss mindestens eine Einnahmezeit gewählt sein
+ * - Fehlermeldungen werden direkt unter dem jeweiligen Bereich angezeigt
+ *
+ * Speicherung / Bearbeiten:
+ * - beim Speichern wird entweder ein neues Medikament angelegt
+ *   oder ein bestehendes (per medicationId) in der Liste ersetzt
+ * - die gesamte Medikamentenliste wird im AsyncStorage persistiert
+ * - «Abbrechen» verwirft alle Änderungen und navigiert zurück
+ * - im Bearbeiten-Modus steht zusätzlich ein Button «Medikament löschen»
+ *   zur Verfügung, der den Eintrag aus der Liste entfernt
+ *
+ * Weitere Punkte:
+ * - alle statischen Texte kommen aus den sprachabhängigen Übersetzungen
+ *   (de/fr/en/it) über den SettingsContext
+ * - das Layout zeigt oben das Logo auf blauem Hintergrund
+ *   und darunter das Formular in einem ScrollView (mit Keyboard-Handling)
+ */
+
 import React, {useState, useEffect} from 'react';
 import {
   SafeAreaView,

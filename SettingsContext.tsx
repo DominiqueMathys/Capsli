@@ -1,3 +1,27 @@
+/**
+ * «settings_context.tsx»
+ *
+ * Dieser Code verwaltet das gesamte Profil- und Einstellungsmanagement Ihrer App.
+ * Er stellt sicher, dass Nutzer:innen ihre Angaben (Name, Vorname, Sprache,
+ * Benachrichtigungen) einmal definieren und diese Werte dann zentral und
+ * dauerhaft verfuegbar bleiben.
+ *
+ * Aufgaben dieses Moduls:
+ * - gespeicherte Einstellungen beim App-Start aus AsyncStorage laden
+ * - alle Einstellungen global ueber einen React Context bereitstellen
+ * - jede Aenderung automatisch und persistent speichern
+ * - einfache Aktualisierung einzelner Werte via updateSettings()
+ *
+ * Aufbau:
+ * - SettingsContext: enthaelt aktuelle Daten und Update-Funktion
+ * - SettingsProvider: lädt initiale Werte, speichert spaeter alle Updates
+ * - useSettings(): komfortabler Zugriff fuer alle Screens
+ *
+ * Ziel:
+ * Ein klarer, stabiler und zentraler Mechanismus, damit Profilinfos in der ganzen
+ * App konsistent genutzt werden koennen.
+ */
+
 import React, {
   createContext,
   useContext,
@@ -7,7 +31,7 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Sprach-Typ für das Profil
+// Sprach-Typ fuer das Profil
 export type Language = 'de' | 'fr' | 'en' | 'it';
 
 // Struktur der gespeicherten Profil-Einstellungen
@@ -23,7 +47,7 @@ type SettingsContextType = {
   updateSettings: (patch: Partial<Settings>) => void;
 };
 
-// Defaultwerte, wenn noch nichts im Storage ist
+// Defaultwerte, falls noch nichts gespeichert wurde
 const defaultSettings: Settings = {
   name: '',
   firstName: '',
@@ -33,19 +57,19 @@ const defaultSettings: Settings = {
 
 const PROFILE_STORAGE_KEY = '@capsli_profile';
 
-// Eigentlicher React Context mit Defaultwerten
+// React Context mit Defaultinhalt
 const SettingsContext = createContext<SettingsContextType>({
   settings: defaultSettings,
   updateSettings: () => {},
 });
 
-// Provider-Komponente: 
-// - lädt Settings beim Start aus AsyncStorage
-// - speichert Aenderungen wieder zurück
+// Provider-Komponente:
+// - lädt Einstellungen aus AsyncStorage
+// - speichert jede Aenderung automatisch zurueck
 export const SettingsProvider = ({children}: {children: ReactNode}) => {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
 
-  // Beim ersten Rendern Profil aus dem lokalen Speicher holen
+  // Beim ersten Start: Profil laden
   useEffect(() => {
     const load = async () => {
       try {
@@ -61,7 +85,7 @@ export const SettingsProvider = ({children}: {children: ReactNode}) => {
     load();
   }, []);
 
-  // Immer wenn sich Settings ändern, in AsyncStorage sichern
+  // Bei jeder Aenderung in AsyncStorage speichern
   useEffect(() => {
     const save = async () => {
       try {
@@ -76,7 +100,7 @@ export const SettingsProvider = ({children}: {children: ReactNode}) => {
     save();
   }, [settings]);
 
-  // Hilfsfunktion, um nur Teile der Settings zu aktualisieren
+  // Nur bestimmte Felder aktualisieren
   const updateSettings = (patch: Partial<Settings>) => {
     setSettings(prev => ({...prev, ...patch}));
   };
@@ -88,5 +112,5 @@ export const SettingsProvider = ({children}: {children: ReactNode}) => {
   );
 };
 
-// Custom Hook, damit Screens bequem auf das Profil zugreifen können
+// Custom Hook fuer einfachen Zugriff in allen Screens
 export const useSettings = () => useContext(SettingsContext);
